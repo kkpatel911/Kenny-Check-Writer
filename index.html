@@ -4,37 +4,36 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>First Horizon Check Print (Metric)</title>
+    <title>Check Print (Metric / cm)</title>
+
+    <!-- External UI library (Bootstrap 5) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
     <style>
-        /* Clean printing */
+        /* PRINT: Do not mess with geometry */
         @page {
             size: letter landscape;
-            /* 27.94cm x 21.59cm */
             margin: 0;
         }
 
         :root {
-            /* Your check size (cm) */
+            /* Check size (cm) — your coordinates are relative to this space */
             --check-w: 27cm;
             --check-h: 7.5cm;
 
-            /* Global nudge (mm) */
+            /* Global nudge (mm) - printing nudge only */
             --gx: 0mm;
             --gy: 0mm;
 
             --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-            --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
         }
 
         body {
-            margin: 0;
-            font-family: var(--sans);
             background: #f5f6f8;
-            color: #111;
         }
 
-        .wrap {
+        /* Layout (UI only) */
+        .app-wrap {
             display: grid;
             grid-template-columns: 420px 1fr;
             gap: 16px;
@@ -42,92 +41,23 @@
             align-items: start;
         }
 
-        .panel {
-            background: #fff;
-            border: 1px solid #e6e8ee;
-            border-radius: 12px;
-            padding: 14px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, .05);
+        .sticky-panel {
             position: sticky;
             top: 12px;
         }
 
-        .panel h1 {
-            font-size: 16px;
-            margin: 0 0 8px;
+        /* Mobile responsiveness */
+        @media (max-width: 992px) {
+            .app-wrap {
+                grid-template-columns: 1fr;
+            }
+
+            .sticky-panel {
+                position: static;
+            }
         }
 
-        .note {
-            font-size: 12px;
-            color: #444;
-            line-height: 1.35;
-            background: #f7f8fb;
-            border: 1px solid #e6e8ee;
-            border-radius: 10px;
-            padding: 10px;
-            margin: 8px 0 12px;
-        }
-
-        .row {
-            display: grid;
-            grid-template-columns: 140px 1fr;
-            gap: 10px;
-            align-items: center;
-            margin: 10px 0;
-        }
-
-        label {
-            font-size: 13px;
-            color: #333;
-        }
-
-        input[type="text"],
-        input[type="date"],
-        input[type="number"] {
-            width: 100%;
-            padding: 9px 10px;
-            border: 1px solid #cfd6e3;
-            border-radius: 10px;
-            font-size: 14px;
-            outline: none;
-        }
-
-        input[type="range"] {
-            width: 100%;
-        }
-
-        .btns {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-top: 12px;
-        }
-
-        button {
-            border: 1px solid #cfd6e3;
-            background: #fff;
-            padding: 9px 12px;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 13px;
-        }
-
-        button.primary {
-            background: #111;
-            color: #fff;
-            border-color: #111;
-        }
-
-        .page {
-            background: #fff;
-            border: 1px solid #e6e8ee;
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, .05);
-            padding: 12px;
-            overflow: auto;
-        }
-
-        /* Preview paper (not printed) */
+        /* Preview paper */
         .paper {
             width: 27.94cm;
             /* Letter landscape width */
@@ -136,12 +66,17 @@
             position: relative;
             margin: 0 auto;
             background: #fff;
-            border: 1px dashed #aaa;
-            /* preview only */
+            border: 1px dashed rgba(0, 0, 0, .25);
             box-sizing: border-box;
+            border-radius: 14px;
+            overflow: hidden;
         }
 
-        /* The check coordinate space (cm-based), origin = top-left of the check */
+        /* IMPORTANT: Printing layer is anchored at (0,0) of the page.
+       You said you'll place the check in the exact center of the printer.
+       So DO NOT introduce any random centering offsets here.
+       All print coordinates are based on a fixed origin.
+    */
         .check-space {
             position: absolute;
             left: 0cm;
@@ -154,14 +89,10 @@
 
         .outline {
             position: absolute;
-            left: 0;
-            top: 0;
-            width: var(--check-w);
-            height: var(--check-h);
-            border: 1px solid rgba(0, 0, 0, .25);
-            border-radius: 6px;
+            inset: 0;
+            border: 1px solid rgba(0, 0, 0, .18);
+            border-radius: 10px;
             opacity: .35;
-            pointer-events: none;
         }
 
         .field {
@@ -170,108 +101,144 @@
             font-size: 13.5pt;
             white-space: nowrap;
             color: #111;
-            max-width: 23cm;
+            max-width: 25cm;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
-        /* Print: remove UI + outlines */
+        /* Print: no UI, no borders */
         @media print {
             body {
                 background: #fff;
             }
 
-            .wrap {
+            .app-wrap {
                 display: block;
                 padding: 0;
             }
 
-            .panel {
+            .ui-only {
                 display: none !important;
-            }
-
-            .page {
-                border: none;
-                box-shadow: none;
-                padding: 0;
             }
 
             .paper {
                 border: none;
+                border-radius: 0;
             }
 
             .outline {
                 display: none !important;
+            }
+
+            .shadow-card {
+                box-shadow: none !important;
+                border: none !important;
             }
         }
     </style>
 </head>
 
 <body>
-    <div class="wrap">
-        <div class="panel">
-            <h1>Check Print (Metric / cm)</h1>
+    <div class="app-wrap">
 
-            <div class="note">
-                To remove top-left date + bottom-left URL:<br>
-                <b>Print → More settings → uncheck “Headers and footers”</b><br>
-                Also set <b>Scale = 100%</b>.
-            </div>
+        <!-- Controls -->
+        <div class="ui-only sticky-panel">
+            <div class="card shadow-sm shadow-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h5 class="card-title mb-0">Check Print</h5>
+                        <span class="badge text-bg-secondary">Metric (cm/mm)</span>
+                    </div>
 
-            <div class="row">
-                <label for="payee">Pay to</label>
-                <input id="payee" type="text" placeholder="Payee name" />
-            </div>
+                    <div class="alert alert-info py-2 small mb-3">
+                        To remove top-left date + bottom-left URL:<br>
+                        <b>Print → More settings → uncheck “Headers and footers”</b><br>
+                        Set <b>Scale = 100%</b>.
+                    </div>
 
-            <div class="row">
-                <label for="amount">Amount ($)</label>
-                <input id="amount" type="number" step="0.01" placeholder="1455.00" />
-            </div>
+                    <!-- Payee dropdown -->
+                    <div class="mb-3">
+                        <label class="form-label">Pay to</label>
+                        <select id="payeeSelect" class="form-select">
+                            <option value="Coca-Cola Consolidated">Coca-Cola Consolidated</option>
+                            <option value="Tri State">Tri State</option>
+                            <option value="__custom__">Custom…</option>
+                        </select>
+                    </div>
 
-            <div class="row">
-                <label for="date">Date</label>
-                <input id="date" type="date" />
-            </div>
+                    <!-- Only shown when Custom selected -->
+                    <div class="mb-3" id="customPayeeWrap" style="display:none;">
+                        <label class="form-label">Custom payee</label>
+                        <input id="customPayee" class="form-control" type="text" placeholder="Enter payee name" />
+                    </div>
 
-            <div class="row">
-                <label for="gx">Global X (mm)</label>
-                <input id="gx" type="range" min="-30" max="30" value="0" />
-            </div>
+                    <div class="mb-3">
+                        <label class="form-label">Amount ($)</label>
+                        <input id="amount" class="form-control" type="number" step="0.01" placeholder="1455.00"
+                            inputmode="decimal" />
+                        <div class="form-text">Auto-fills amount-in-words.</div>
+                    </div>
 
-            <div class="row">
-                <label for="gy">Global Y (mm)</label>
-                <input id="gy" type="range" min="-30" max="30" value="0" />
-            </div>
+                    <div class="mb-3">
+                        <label class="form-label">Date</label>
+                        <input id="date" class="form-control" type="date" />
+                    </div>
 
-            <div class="btns">
-                <button class="primary" id="printBtn">Print</button>
-                <button id="demoBtn">Demo (1455.00)</button>
-                <button id="resetBtn">Reset</button>
-            </div>
-        </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label">Global X (mm)</label>
+                            <input id="gx" class="form-range" type="range" min="-30" max="30" value="0" />
+                            <div class="small text-muted" id="gxRead">0 mm</div>
+                        </div>
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label">Global Y (mm)</label>
+                            <input id="gy" class="form-range" type="range" min="-30" max="30" value="0" />
+                            <div class="small text-muted" id="gyRead">0 mm</div>
+                        </div>
+                    </div>
 
-        <div class="page">
-            <div class="paper">
-                <div class="check-space" id="checkSpace">
-                    <div class="outline"></div>
-
-                    <!-- YOUR METRIC POSITIONS (cm), origin = top-left of check -->
-
-                    <!-- Date: top = 2.40cm, left = 15cm -->
-                    <div class="field" id="fDate" style="left:15cm; top:2.40cm;"></div>
-
-                    <!-- Payee: top = 3.30cm, left = 2.50cm -->
-                    <div class="field" id="fPayee" style="left:2.50cm; top:3.30cm; font-size:14pt;"></div>
-
-                    <!-- Amount in words line: top = 4.20cm, left = 1cm -->
-                    <div class="field" id="fWords" style="left:1cm; top:4.20cm; font-size:13pt; max-width:25cm;"></div>
-
-                    <!-- Numeric amount box: left starts at 17.50cm, top between 2.30–3.10cm
-               We'll place it at 2.70cm (middle-ish). Adjust via Global Y if needed. -->
-                    <div class="field" id="fNum" style="left:17.50cm; top:2.70cm; font-size:14pt;"></div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button class="btn btn-dark" id="printBtn" type="button">Print</button>
+                        <button class="btn btn-outline-secondary" id="demoBtn" type="button">Demo</button>
+                        <button class="btn btn-outline-secondary" id="resetBtn" type="button">Reset</button>
+                    </div>
                 </div>
             </div>
         </div>
+
+        <!-- Preview / Print Surface -->
+        <div>
+            <div class="card shadow-sm shadow-card">
+                <div class="card-body">
+                    <div class="paper">
+                        <div class="check-space" id="checkSpace">
+                            <div class="outline"></div>
+
+                            <!-- YOUR METRIC POSITIONS (cm), origin = top-left of page/check space -->
+
+                            <!-- Date: top = 2.40cm, left = 15cm -->
+                            <div class="field" id="fDate" style="left:15cm; top:2.40cm;"></div>
+
+                            <!-- Payee: top = 3.30cm, left = 2.50cm -->
+                            <div class="field" id="fPayee" style="left:2.50cm; top:3.30cm; font-size:14pt;"></div>
+
+                            <!-- Amount in words: top = 4.20cm, left = 1cm -->
+                            <div class="field" id="fWords"
+                                style="left:1cm; top:4.20cm; font-size:13pt; max-width:25cm;"></div>
+
+                            <!-- Numeric amount rectangle:
+                   left starts at 17.50cm, top range 2.60–3.50cm => midpoint 3.05cm -->
+                            <div class="field" id="fNum" style="left:17.50cm; top:3.05cm; font-size:14pt;"></div>
+                        </div>
+                    </div>
+
+                    <div class="small text-muted mt-2">
+                        Preview shows the check-space at the page origin. Printing uses the same geometry.
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -283,14 +250,11 @@
 
         function chunkToWords(n) {
             const words = [];
-            const h = Math.floor(n / 100);
-            const r = n % 100;
+            const h = Math.floor(n / 100), r = n % 100;
             if (h > 0) words.push(ONES[h], "Hundred");
-            if (r >= 10 && r <= 19) {
-                words.push(TEENS[r - 10]);
-            } else {
-                const t = Math.floor(r / 10);
-                const o = r % 10;
+            if (r >= 10 && r <= 19) words.push(TEENS[r - 10]);
+            else {
+                const t = Math.floor(r / 10), o = r % 10;
                 if (t > 0) words.push(TENS[t]);
                 if (o > 0) words.push(ONES[o]);
             }
@@ -299,8 +263,7 @@
 
         function numberToWordsInt(num) {
             if (num === 0) return "Zero";
-            let i = 0;
-            const parts = [];
+            let i = 0; const parts = [];
             while (num > 0) {
                 const chunk = num % 1000;
                 if (chunk !== 0) {
@@ -314,19 +277,18 @@
             return parts.join(" ").replace(/\s+/g, " ").trim();
         }
 
-        function formatMoney(amountStr) {
-            const amt = Number(amountStr);
+        function formatMoney(v) {
+            const amt = Number(v);
             if (!isFinite(amt) || amt < 0) return "";
             return amt.toFixed(2);
         }
 
-        function amountToCheckWords(amountStr) {
-            const amt = Number(amountStr);
+        function amountToCheckWords(v) {
+            const amt = Number(v);
             if (!isFinite(amt) || amt < 0) return "";
             const dollars = Math.floor(amt + 1e-9);
             const cents = Math.round((amt - dollars) * 100 + 1e-9);
-            const cents2 = String(cents).padStart(2, "0");
-            return `${numberToWordsInt(dollars)} and ${cents2}/100`;
+            return `${numberToWordsInt(dollars)} and ${String(cents).padStart(2, "0")}/100`;
         }
 
         function formatDateISOToMMDDYYYY(iso) {
@@ -336,34 +298,64 @@
             return `${String(m).padStart(2, "0")}/${String(d).padStart(2, "0")}/${y}`;
         }
 
-        // ---------- UI wiring ----------
-        const payeeEl = document.getElementById("payee");
+        // ---------- DOM ----------
+        const payeeSelect = document.getElementById("payeeSelect");
+        const customPayeeWrap = document.getElementById("customPayeeWrap");
+        const customPayee = document.getElementById("customPayee");
+
         const amountEl = document.getElementById("amount");
         const dateEl = document.getElementById("date");
         const gxEl = document.getElementById("gx");
         const gyEl = document.getElementById("gy");
+        const gxRead = document.getElementById("gxRead");
+        const gyRead = document.getElementById("gyRead");
 
         const fDate = document.getElementById("fDate");
         const fPayee = document.getElementById("fPayee");
         const fWords = document.getElementById("fWords");
         const fNum = document.getElementById("fNum");
-
         const checkSpace = document.getElementById("checkSpace");
 
-        function render() {
-            fPayee.textContent = payeeEl.value || "";
-
-            const money = formatMoney(amountEl.value);
-            fNum.textContent = money ? `$${money}` : "";
-
-            fWords.textContent = amountToCheckWords(amountEl.value) || "";
-            fDate.textContent = formatDateISOToMMDDYYYY(dateEl.value);
-
-            checkSpace.style.setProperty("--gx", (Number(gxEl.value) || 0) + "mm");
-            checkSpace.style.setProperty("--gy", (Number(gyEl.value) || 0) + "mm");
+        function getPayeeText() {
+            const v = payeeSelect.value;
+            if (v === "__custom__") {
+                return (customPayee.value || "").trim();
+            }
+            return v;
         }
 
-        [payeeEl, amountEl, dateEl, gxEl, gyEl].forEach(el => {
+        function render() {
+            // Payee
+            const payee = getPayeeText();
+            fPayee.textContent = payee;
+
+            // Amount numeric + words
+            const money = formatMoney(amountEl.value);
+            fNum.textContent = money ? `$${money}` : "";
+            fWords.textContent = amountToCheckWords(amountEl.value) || "";
+
+            // Date
+            fDate.textContent = formatDateISOToMMDDYYYY(dateEl.value);
+
+            // Global print offsets in mm
+            const gx = Number(gxEl.value) || 0;
+            const gy = Number(gyEl.value) || 0;
+            gxRead.textContent = `${gx} mm`;
+            gyRead.textContent = `${gy} mm`;
+            checkSpace.style.setProperty("--gx", gx + "mm");
+            checkSpace.style.setProperty("--gy", gy + "mm");
+        }
+
+        // Payee dropdown behavior
+        payeeSelect.addEventListener("change", () => {
+            const isCustom = payeeSelect.value === "__custom__";
+            customPayeeWrap.style.display = isCustom ? "block" : "none";
+            if (isCustom) customPayee.focus();
+            render();
+        });
+        customPayee.addEventListener("input", render);
+
+        [amountEl, dateEl, gxEl, gyEl].forEach(el => {
             el.addEventListener("input", render);
             el.addEventListener("change", render);
         });
@@ -372,17 +364,29 @@
 
         document.getElementById("resetBtn").addEventListener("click", () => {
             gxEl.value = 0; gyEl.value = 0;
+            payeeSelect.value = "Coca-Cola Consolidated";
+            customPayee.value = "";
+            customPayeeWrap.style.display = "none";
+            amountEl.value = "";
+            dateEl.value = "";
             render();
         });
 
         document.getElementById("demoBtn").addEventListener("click", () => {
-            payeeEl.value = "Sample Payee";
-            amountEl.value = "1455.00";
+            payeeSelect.value = "Coca-Cola Consolidated";
+            customPayee.value = "";
+            customPayeeWrap.style.display = "none";
+            amountEl.value = "927";
             dateEl.value = new Date().toISOString().slice(0, 10);
             render();
         });
 
-        render();
+        // Initialize
+        (function init() {
+            payeeSelect.value = "Coca-Cola Consolidated";
+            customPayeeWrap.style.display = "none";
+            render();
+        })();
     </script>
 </body>
 
