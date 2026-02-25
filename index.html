@@ -4,25 +4,24 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Check Print (Clean)</title>
+    <title>First Horizon Check Print (Metric)</title>
 
     <style>
-        /* Force clean printing (browser headers/footers still must be disabled in print dialog) */
+        /* Clean printing */
         @page {
             size: letter landscape;
+            /* 27.94cm x 21.59cm */
             margin: 0;
         }
 
         :root {
-            --page-w: 11in;
-            --page-h: 8.5in;
+            /* Your check size (cm) */
+            --check-w: 27cm;
+            --check-h: 7.5cm;
 
-            /* Where the check sits on the sheet (starting point) */
-            --check-left: 0.75in;
-            --check-top: 1.00in;
-
-            --check-w: 8.5in;
-            --check-h: 3.5in;
+            /* Global nudge (mm) */
+            --gx: 0mm;
+            --gy: 0mm;
 
             --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
             --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
@@ -37,7 +36,7 @@
 
         .wrap {
             display: grid;
-            grid-template-columns: 400px 1fr;
+            grid-template-columns: 420px 1fr;
             gap: 16px;
             padding: 16px;
             align-items: start;
@@ -62,11 +61,11 @@
             font-size: 12px;
             color: #444;
             line-height: 1.35;
-            margin: 8px 0 12px;
-            padding: 10px;
             background: #f7f8fb;
             border: 1px solid #e6e8ee;
             border-radius: 10px;
+            padding: 10px;
+            margin: 8px 0 12px;
         }
 
         .row {
@@ -95,13 +94,6 @@
 
         input[type="range"] {
             width: 100%;
-        }
-
-        .section-title {
-            margin-top: 14px;
-            font-size: 13px;
-            font-weight: 700;
-            color: #222;
         }
 
         .btns {
@@ -135,38 +127,41 @@
             overflow: auto;
         }
 
+        /* Preview paper (not printed) */
         .paper {
-            width: var(--page-w);
-            height: var(--page-h);
-            background: #fff;
+            width: 27.94cm;
+            /* Letter landscape width */
+            height: 21.59cm;
+            /* Letter landscape height */
             position: relative;
             margin: 0 auto;
+            background: #fff;
             border: 1px dashed #aaa;
             /* preview only */
             box-sizing: border-box;
         }
 
-        /* Preview check outline (NOT printed) */
-        .check-outline {
+        /* The check coordinate space (cm-based), origin = top-left of the check */
+        .check-space {
             position: absolute;
-            left: var(--check-left);
-            top: var(--check-top);
+            left: 0cm;
+            top: 0cm;
+            width: var(--check-w);
+            height: var(--check-h);
+            transform: translate(var(--gx), var(--gy));
+            pointer-events: none;
+        }
+
+        .outline {
+            position: absolute;
+            left: 0;
+            top: 0;
             width: var(--check-w);
             height: var(--check-h);
             border: 1px solid rgba(0, 0, 0, .25);
             border-radius: 6px;
+            opacity: .35;
             pointer-events: none;
-        }
-
-        /* All printed text lives here */
-        .layer {
-            position: absolute;
-            left: var(--check-left);
-            top: var(--check-top);
-            width: var(--check-w);
-            height: var(--check-h);
-            pointer-events: none;
-            transform: translate(var(--global-x, 0px), var(--global-y, 0px));
         }
 
         .field {
@@ -175,10 +170,12 @@
             font-size: 13.5pt;
             white-space: nowrap;
             color: #111;
-            transform: translate(var(--fx, 0px), var(--fy, 0px));
+            max-width: 23cm;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        /* PRINT: completely clean page */
+        /* Print: remove UI + outlines */
         @media print {
             body {
                 background: #fff;
@@ -203,7 +200,7 @@
                 border: none;
             }
 
-            .check-outline {
+            .outline {
                 display: none !important;
             }
         }
@@ -213,9 +210,10 @@
 <body>
     <div class="wrap">
         <div class="panel">
-            <h1>Check Print (Clean)</h1>
+            <h1>Check Print (Metric / cm)</h1>
+
             <div class="note">
-                To remove the top-left date and bottom-left URL:<br>
+                To remove top-left date + bottom-left URL:<br>
                 <b>Print → More settings → uncheck “Headers and footers”</b><br>
                 Also set <b>Scale = 100%</b>.
             </div>
@@ -235,81 +233,42 @@
                 <input id="date" type="date" />
             </div>
 
-            <div class="section-title">Global alignment (moves ALL fields)</div>
-
             <div class="row">
-                <label for="globalX">Global X</label>
-                <input id="globalX" type="range" min="-200" max="200" value="0" />
-            </div>
-            <div class="row">
-                <label for="globalY">Global Y</label>
-                <input id="globalY" type="range" min="-200" max="200" value="0" />
-            </div>
-
-            <div class="section-title">Fine tuning (per field)</div>
-
-            <div class="row">
-                <label for="payeeX">Payee X</label>
-                <input id="payeeX" type="range" min="-120" max="120" value="0" />
-            </div>
-            <div class="row">
-                <label for="payeeY">Payee Y</label>
-                <input id="payeeY" type="range" min="-120" max="120" value="0" />
+                <label for="gx">Global X (mm)</label>
+                <input id="gx" type="range" min="-30" max="30" value="0" />
             </div>
 
             <div class="row">
-                <label for="wordsX">Words X</label>
-                <input id="wordsX" type="range" min="-120" max="120" value="0" />
-            </div>
-            <div class="row">
-                <label for="wordsY">Words Y</label>
-                <input id="wordsY" type="range" min="-120" max="120" value="0" />
-            </div>
-
-            <div class="row">
-                <label for="numX">$ Amount X</label>
-                <input id="numX" type="range" min="-120" max="120" value="0" />
-            </div>
-            <div class="row">
-                <label for="numY">$ Amount Y</label>
-                <input id="numY" type="range" min="-120" max="120" value="0" />
-            </div>
-
-            <div class="row">
-                <label for="dateX">Date X</label>
-                <input id="dateX" type="range" min="-120" max="120" value="0" />
-            </div>
-            <div class="row">
-                <label for="dateY">Date Y</label>
-                <input id="dateY" type="range" min="-120" max="120" value="0" />
+                <label for="gy">Global Y (mm)</label>
+                <input id="gy" type="range" min="-30" max="30" value="0" />
             </div>
 
             <div class="btns">
                 <button class="primary" id="printBtn">Print</button>
                 <button id="demoBtn">Demo (1455.00)</button>
-                <button id="resetBtn">Reset offsets</button>
+                <button id="resetBtn">Reset</button>
             </div>
         </div>
 
         <div class="page">
             <div class="paper">
-                <div class="check-outline"></div>
+                <div class="check-space" id="checkSpace">
+                    <div class="outline"></div>
 
-                <div class="layer" id="layer">
-                    <!-- Positions tuned to the demo image as a starting point -->
-                    <!-- Date (top-right) -->
-                    <div class="field" id="fDate" style="left: 6.65in; top: 0.45in;"></div>
+                    <!-- YOUR METRIC POSITIONS (cm), origin = top-left of check -->
 
-                    <!-- Payee line -->
-                    <div class="field" id="fPayee" style="left: 1.20in; top: 1.08in; font-size: 14pt;"></div>
+                    <!-- Date: top = 2.40cm, left = 15cm -->
+                    <div class="field" id="fDate" style="left:15cm; top:2.40cm;"></div>
 
-                    <!-- Numeric amount -->
-                    <div class="field" id="fNum" style="left: 7.05in; top: 1.08in; font-size: 14pt;"></div>
+                    <!-- Payee: top = 3.30cm, left = 2.50cm -->
+                    <div class="field" id="fPayee" style="left:2.50cm; top:3.30cm; font-size:14pt;"></div>
 
-                    <!-- Amount in words -->
-                    <div class="field" id="fWords"
-                        style="left: 0.55in; top: 1.62in; font-size: 13pt; max-width: 7.6in; overflow:hidden; text-overflow:ellipsis;">
-                    </div>
+                    <!-- Amount in words line: top = 4.20cm, left = 1cm -->
+                    <div class="field" id="fWords" style="left:1cm; top:4.20cm; font-size:13pt; max-width:25cm;"></div>
+
+                    <!-- Numeric amount box: left starts at 17.50cm, top between 2.30–3.10cm
+               We'll place it at 2.70cm (middle-ish). Adjust via Global Y if needed. -->
+                    <div class="field" id="fNum" style="left:17.50cm; top:2.70cm; font-size:14pt;"></div>
                 </div>
             </div>
         </div>
@@ -381,56 +340,30 @@
         const payeeEl = document.getElementById("payee");
         const amountEl = document.getElementById("amount");
         const dateEl = document.getElementById("date");
-
-        const globalXEl = document.getElementById("globalX");
-        const globalYEl = document.getElementById("globalY");
-
-        const payeeXEl = document.getElementById("payeeX");
-        const payeeYEl = document.getElementById("payeeY");
-        const wordsXEl = document.getElementById("wordsX");
-        const wordsYEl = document.getElementById("wordsY");
-        const numXEl = document.getElementById("numX");
-        const numYEl = document.getElementById("numY");
-        const dateXEl = document.getElementById("dateX");
-        const dateYEl = document.getElementById("dateY");
-
-        const layer = document.getElementById("layer");
+        const gxEl = document.getElementById("gx");
+        const gyEl = document.getElementById("gy");
 
         const fDate = document.getElementById("fDate");
         const fPayee = document.getElementById("fPayee");
-        const fNum = document.getElementById("fNum");
         const fWords = document.getElementById("fWords");
+        const fNum = document.getElementById("fNum");
 
-        function setFieldOffset(el, x, y) {
-            el.style.setProperty("--fx", (Number(x) || 0) + "px");
-            el.style.setProperty("--fy", (Number(y) || 0) + "px");
-        }
+        const checkSpace = document.getElementById("checkSpace");
 
         function render() {
             fPayee.textContent = payeeEl.value || "";
 
-            const amtText = formatMoney(amountEl.value);
-            fNum.textContent = amtText ? `$${amtText}` : "";
+            const money = formatMoney(amountEl.value);
+            fNum.textContent = money ? `$${money}` : "";
 
-            const words = amountToCheckWords(amountEl.value);
-            fWords.textContent = words || "";
-
+            fWords.textContent = amountToCheckWords(amountEl.value) || "";
             fDate.textContent = formatDateISOToMMDDYYYY(dateEl.value);
 
-            layer.style.setProperty("--global-x", (Number(globalXEl.value) || 0) + "px");
-            layer.style.setProperty("--global-y", (Number(globalYEl.value) || 0) + "px");
-
-            setFieldOffset(fPayee, payeeXEl.value, payeeYEl.value);
-            setFieldOffset(fWords, wordsXEl.value, wordsYEl.value);
-            setFieldOffset(fNum, numXEl.value, numYEl.value);
-            setFieldOffset(fDate, dateXEl.value, dateYEl.value);
+            checkSpace.style.setProperty("--gx", (Number(gxEl.value) || 0) + "mm");
+            checkSpace.style.setProperty("--gy", (Number(gyEl.value) || 0) + "mm");
         }
 
-        [
-            payeeEl, amountEl, dateEl,
-            globalXEl, globalYEl,
-            payeeXEl, payeeYEl, wordsXEl, wordsYEl, numXEl, numYEl, dateXEl, dateYEl
-        ].forEach(el => {
+        [payeeEl, amountEl, dateEl, gxEl, gyEl].forEach(el => {
             el.addEventListener("input", render);
             el.addEventListener("change", render);
         });
@@ -438,11 +371,7 @@
         document.getElementById("printBtn").addEventListener("click", () => window.print());
 
         document.getElementById("resetBtn").addEventListener("click", () => {
-            globalXEl.value = 0; globalYEl.value = 0;
-            payeeXEl.value = 0; payeeYEl.value = 0;
-            wordsXEl.value = 0; wordsYEl.value = 0;
-            numXEl.value = 0; numYEl.value = 0;
-            dateXEl.value = 0; dateYEl.value = 0;
+            gxEl.value = 0; gyEl.value = 0;
             render();
         });
 
