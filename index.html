@@ -4,24 +4,26 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Check Print (Metric / cm)</title>
+    <title>Check Print (Single Page)</title>
 
-    <!-- External UI library (Bootstrap 5) -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
     <style>
-        /* PRINT: Do not mess with geometry */
+        /* Force EXACT single page */
         @page {
-            size: letter landscape;
+            size: 11in 8.5in;
             margin: 0;
         }
 
+        /* Letter landscape */
+
         :root {
-            /* Check size (cm) — your coordinates are relative to this space */
+            --page-w: 11in;
+            --page-h: 8.5in;
+
             --check-w: 27cm;
             --check-h: 7.5cm;
 
-            /* Global nudge (mm) - printing nudge only */
             --gx: 0mm;
             --gy: 0mm;
 
@@ -32,7 +34,7 @@
             background: #f5f6f8;
         }
 
-        /* Layout (UI only) */
+        /* UI layout (screen only) */
         .app-wrap {
             display: grid;
             grid-template-columns: 420px 1fr;
@@ -41,12 +43,6 @@
             align-items: start;
         }
 
-        .sticky-panel {
-            position: sticky;
-            top: 12px;
-        }
-
-        /* Mobile responsiveness */
         @media (max-width: 992px) {
             .app-wrap {
                 grid-template-columns: 1fr;
@@ -57,30 +53,38 @@
             }
         }
 
-        /* Preview paper */
-        .paper {
+        .sticky-panel {
+            position: sticky;
+            top: 12px;
+        }
+
+        /* Preview surface (screen) */
+        .paper-preview {
             width: 27.94cm;
-            /* Letter landscape width */
             height: 21.59cm;
-            /* Letter landscape height */
             position: relative;
             margin: 0 auto;
             background: #fff;
             border: 1px dashed rgba(0, 0, 0, .25);
-            box-sizing: border-box;
             border-radius: 14px;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        /* PRINT surface: this is the ONLY thing that prints */
+        #printPage {
+            width: var(--page-w);
+            height: var(--page-h);
+            position: relative;
+            background: #fff;
             overflow: hidden;
         }
 
-        /* IMPORTANT: Printing layer is anchored at (0,0) of the page.
-       You said you'll place the check in the exact center of the printer.
-       So DO NOT introduce any random centering offsets here.
-       All print coordinates are based on a fixed origin.
-    */
         .check-space {
             position: absolute;
-            left: 0cm;
-            top: 0cm;
+            left: 0;
+            top: 0;
+            /* anchored to page origin */
             width: var(--check-w);
             height: var(--check-h);
             transform: translate(var(--gx), var(--gy));
@@ -106,34 +110,44 @@
             text-overflow: ellipsis;
         }
 
-        /* Print: no UI, no borders */
+        /* --- PRINT RULES: guarantee ONE page --- */
         @media print {
+
+            html,
             body {
-                background: #fff;
+                margin: 0 !important;
+                padding: 0 !important;
+                width: var(--page-w) !important;
+                height: var(--page-h) !important;
+                overflow: hidden !important;
+                background: #fff !important;
             }
 
-            .app-wrap {
-                display: block;
-                padding: 0;
+            /* Print ONLY #printPage */
+            body * {
+                visibility: hidden !important;
             }
 
-            .ui-only {
-                display: none !important;
+            #printPage,
+            #printPage * {
+                visibility: visible !important;
             }
 
-            .paper {
-                border: none;
-                border-radius: 0;
+            #printPage {
+                position: fixed !important;
+                left: 0 !important;
+                top: 0 !important;
+                page-break-after: avoid !important;
+                page-break-before: avoid !important;
+                break-after: avoid !important;
+                break-before: avoid !important;
             }
 
             .outline {
                 display: none !important;
             }
 
-            .shadow-card {
-                box-shadow: none !important;
-                border: none !important;
-            }
+            /* no outline on real print */
         }
     </style>
 </head>
@@ -141,22 +155,21 @@
 <body>
     <div class="app-wrap">
 
-        <!-- Controls -->
-        <div class="ui-only sticky-panel">
-            <div class="card shadow-sm shadow-card">
+        <!-- UI (screen only) -->
+        <div class="sticky-panel">
+            <div class="card shadow-sm">
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h5 class="card-title mb-0">Check Print</h5>
-                        <span class="badge text-bg-secondary">Metric (cm/mm)</span>
+                        <h5 class="mb-0">Check Print</h5>
+                        <span class="badge text-bg-secondary">cm/mm</span>
                     </div>
 
                     <div class="alert alert-info py-2 small mb-3">
-                        To remove top-left date + bottom-left URL:<br>
-                        <b>Print → More settings → uncheck “Headers and footers”</b><br>
-                        Set <b>Scale = 100%</b>.
+                        If you don’t see “Headers and footers” on Mac Chrome, use
+                        <b>Print using system dialog…</b> and disable web headers/footers there.
+                        Keep <b>Scale = 100%</b>.
                     </div>
 
-                    <!-- Payee dropdown -->
                     <div class="mb-3">
                         <label class="form-label">Pay to</label>
                         <select id="payeeSelect" class="form-select">
@@ -166,7 +179,6 @@
                         </select>
                     </div>
 
-                    <!-- Only shown when Custom selected -->
                     <div class="mb-3" id="customPayeeWrap" style="display:none;">
                         <label class="form-label">Custom payee</label>
                         <input id="customPayee" class="form-control" type="text" placeholder="Enter payee name" />
@@ -174,9 +186,8 @@
 
                     <div class="mb-3">
                         <label class="form-label">Amount ($)</label>
-                        <input id="amount" class="form-control" type="number" step="0.01" placeholder="1455.00"
-                            inputmode="decimal" />
-                        <div class="form-text">Auto-fills amount-in-words.</div>
+                        <input id="amount" class="form-control" type="number" step="0.01" inputmode="decimal"
+                            placeholder="927.00" />
                     </div>
 
                     <div class="mb-3">
@@ -184,7 +195,7 @@
                         <input id="date" class="form-control" type="date" />
                     </div>
 
-                    <div class="row g-3 mb-3">
+                    <div class="row g-3 mb-2">
                         <div class="col-12 col-sm-6">
                             <label class="form-label">Global X (mm)</label>
                             <input id="gx" class="form-range" type="range" min="-30" max="30" value="0" />
@@ -197,7 +208,7 @@
                         </div>
                     </div>
 
-                    <div class="d-flex gap-2 flex-wrap">
+                    <div class="d-flex gap-2 flex-wrap mt-3">
                         <button class="btn btn-dark" id="printBtn" type="button">Print</button>
                         <button class="btn btn-outline-secondary" id="demoBtn" type="button">Demo</button>
                         <button class="btn btn-outline-secondary" id="resetBtn" type="button">Reset</button>
@@ -206,43 +217,36 @@
             </div>
         </div>
 
-        <!-- Preview / Print Surface -->
-        <div>
-            <div class="card shadow-sm shadow-card">
-                <div class="card-body">
-                    <div class="paper">
-                        <div class="check-space" id="checkSpace">
-                            <div class="outline"></div>
-
-                            <!-- YOUR METRIC POSITIONS (cm), origin = top-left of page/check space -->
-
-                            <!-- Date: top = 2.40cm, left = 15cm -->
-                            <div class="field" id="fDate" style="left:15cm; top:2.40cm;"></div>
-
-                            <!-- Payee: top = 3.30cm, left = 2.50cm -->
-                            <div class="field" id="fPayee" style="left:2.50cm; top:3.30cm; font-size:14pt;"></div>
-
-                            <!-- Amount in words: top = 4.20cm, left = 1cm -->
-                            <div class="field" id="fWords"
-                                style="left:1cm; top:4.20cm; font-size:13pt; max-width:25cm;"></div>
-
-                            <!-- Numeric amount rectangle:
-                   left starts at 17.50cm, top range 2.60–3.50cm => midpoint 3.05cm -->
-                            <div class="field" id="fNum" style="left:17.50cm; top:3.05cm; font-size:14pt;"></div>
-                        </div>
-                    </div>
-
-                    <div class="small text-muted mt-2">
-                        Preview shows the check-space at the page origin. Printing uses the same geometry.
-                    </div>
+        <!-- Preview (screen only) -->
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="paper-preview">
+                    <!-- reuse the same print content for preview by cloning via JS -->
+                    <div id="previewMount"></div>
+                </div>
+                <div class="small text-muted mt-2">
+                    Preview shows the same content. Printing is forced to a single page.
                 </div>
             </div>
         </div>
 
     </div>
 
+    <!-- The ONE printable page -->
+    <div id="printPage" aria-hidden="true">
+        <div class="check-space" id="checkSpace">
+            <div class="outline"></div>
+
+            <!-- Your coordinates (cm) -->
+            <div class="field" id="fDate" style="left:15cm; top:2.40cm;"></div>
+            <div class="field" id="fPayee" style="left:2.50cm; top:3.30cm; font-size:14pt;"></div>
+            <div class="field" id="fWords" style="left:1cm; top:4.20cm; font-size:13pt; max-width:25cm;"></div>
+            <div class="field" id="fNum" style="left:17.50cm; top:3.55cm; font-size:14pt;"></div>
+        </div>
+    </div>
+
     <script>
-        // ---------- Number-to-words (check format) ----------
+        // ---------- Number-to-words ----------
         const ONES = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
         const TEENS = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
         const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
@@ -298,11 +302,10 @@
             return `${String(m).padStart(2, "0")}/${String(d).padStart(2, "0")}/${y}`;
         }
 
-        // ---------- DOM ----------
+        // DOM
         const payeeSelect = document.getElementById("payeeSelect");
         const customPayeeWrap = document.getElementById("customPayeeWrap");
         const customPayee = document.getElementById("customPayee");
-
         const amountEl = document.getElementById("amount");
         const dateEl = document.getElementById("date");
         const gxEl = document.getElementById("gx");
@@ -310,43 +313,47 @@
         const gxRead = document.getElementById("gxRead");
         const gyRead = document.getElementById("gyRead");
 
+        const checkSpace = document.getElementById("checkSpace");
         const fDate = document.getElementById("fDate");
         const fPayee = document.getElementById("fPayee");
         const fWords = document.getElementById("fWords");
         const fNum = document.getElementById("fNum");
-        const checkSpace = document.getElementById("checkSpace");
 
-        function getPayeeText() {
-            const v = payeeSelect.value;
-            if (v === "__custom__") {
-                return (customPayee.value || "").trim();
-            }
-            return v;
+        function getPayee() {
+            if (payeeSelect.value === "__custom__") return (customPayee.value || "").trim();
+            return payeeSelect.value;
         }
 
         function render() {
-            // Payee
-            const payee = getPayeeText();
-            fPayee.textContent = payee;
+            fPayee.textContent = getPayee();
 
-            // Amount numeric + words
             const money = formatMoney(amountEl.value);
             fNum.textContent = money ? `$${money}` : "";
             fWords.textContent = amountToCheckWords(amountEl.value) || "";
-
-            // Date
             fDate.textContent = formatDateISOToMMDDYYYY(dateEl.value);
 
-            // Global print offsets in mm
             const gx = Number(gxEl.value) || 0;
             const gy = Number(gyEl.value) || 0;
             gxRead.textContent = `${gx} mm`;
             gyRead.textContent = `${gy} mm`;
             checkSpace.style.setProperty("--gx", gx + "mm");
             checkSpace.style.setProperty("--gy", gy + "mm");
+
+            syncPreview();
         }
 
-        // Payee dropdown behavior
+        function syncPreview() {
+            const mount = document.getElementById("previewMount");
+            mount.innerHTML = ""; // re-mount fresh
+            const clone = document.getElementById("printPage").cloneNode(true);
+            clone.removeAttribute("id");
+            clone.style.width = "100%";
+            clone.style.height = "100%";
+            clone.style.position = "relative";
+            clone.style.overflow = "hidden";
+            mount.appendChild(clone);
+        }
+
         payeeSelect.addEventListener("change", () => {
             const isCustom = payeeSelect.value === "__custom__";
             customPayeeWrap.style.display = isCustom ? "block" : "none";
@@ -374,19 +381,13 @@
 
         document.getElementById("demoBtn").addEventListener("click", () => {
             payeeSelect.value = "Coca-Cola Consolidated";
-            customPayee.value = "";
             customPayeeWrap.style.display = "none";
             amountEl.value = "927";
             dateEl.value = new Date().toISOString().slice(0, 10);
             render();
         });
 
-        // Initialize
-        (function init() {
-            payeeSelect.value = "Coca-Cola Consolidated";
-            customPayeeWrap.style.display = "none";
-            render();
-        })();
+        render();
     </script>
 </body>
 
