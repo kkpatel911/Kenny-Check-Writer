@@ -24,6 +24,10 @@
             --check-w: 27cm;
             --check-h: 7.5cm;
 
+            --base-x: 7.06cm;
+            --base-y: 6.36cm;
+            /* centered + 0.60mm calibration */
+
             --gx: 0mm;
             --gy: 0mm;
 
@@ -80,15 +84,23 @@
             overflow: hidden;
         }
 
-        .check-space {
+        /* .check-space {
             position: absolute;
-            left: 0;
-            top: 0;
-            /* anchored to page origin */
+            left: var(--base-x);
+            top: var(--base-y);
             width: var(--check-w);
             height: var(--check-h);
             transform: translate(var(--gx), var(--gy));
             pointer-events: none;
+        } */
+
+        .check-space {
+            position: absolute;
+            left: var(--base-x);
+            top: var(--base-y);
+            width: var(--check-w);
+            height: var(--check-h);
+            transform: translate(var(--gx), var(--gy));
         }
 
         .outline {
