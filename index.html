@@ -4,17 +4,22 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>First Horizon Check Print</title>
+    <title>Check Print (Clean)</title>
+
     <style>
+        /* Force clean printing (browser headers/footers still must be disabled in print dialog) */
+        @page {
+            size: letter landscape;
+            margin: 0;
+        }
+
         :root {
             --page-w: 11in;
             --page-h: 8.5in;
 
-            /* Where the physical check sits on the paper (if you're feeding a full sheet).
-         If you're printing onto a pre-printed check sheet, you may need to adjust these.
-      */
+            /* Where the check sits on the sheet (starting point) */
             --check-left: 0.75in;
-            --check-top: 1.0in;
+            --check-top: 1.00in;
 
             --check-w: 8.5in;
             --check-h: 3.5in;
@@ -32,7 +37,7 @@
 
         .wrap {
             display: grid;
-            grid-template-columns: 380px 1fr;
+            grid-template-columns: 400px 1fr;
             gap: 16px;
             padding: 16px;
             align-items: start;
@@ -50,12 +55,23 @@
 
         .panel h1 {
             font-size: 16px;
-            margin: 0 0 10px;
+            margin: 0 0 8px;
+        }
+
+        .note {
+            font-size: 12px;
+            color: #444;
+            line-height: 1.35;
+            margin: 8px 0 12px;
+            padding: 10px;
+            background: #f7f8fb;
+            border: 1px solid #e6e8ee;
+            border-radius: 10px;
         }
 
         .row {
             display: grid;
-            grid-template-columns: 120px 1fr;
+            grid-template-columns: 140px 1fr;
             gap: 10px;
             align-items: center;
             margin: 10px 0;
@@ -81,6 +97,13 @@
             width: 100%;
         }
 
+        .section-title {
+            margin-top: 14px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #222;
+        }
+
         .btns {
             display: flex;
             gap: 10px;
@@ -103,13 +126,6 @@
             border-color: #111;
         }
 
-        .hint {
-            font-size: 12px;
-            color: #555;
-            line-height: 1.4;
-            margin-top: 10px;
-        }
-
         .page {
             background: #fff;
             border: 1px solid #e6e8ee;
@@ -126,30 +142,31 @@
             position: relative;
             margin: 0 auto;
             border: 1px dashed #aaa;
+            /* preview only */
+            box-sizing: border-box;
         }
 
-        /* Preview-only check outline */
+        /* Preview check outline (NOT printed) */
         .check-outline {
             position: absolute;
             left: var(--check-left);
             top: var(--check-top);
             width: var(--check-w);
             height: var(--check-h);
-            border: 1px solid #999;
+            border: 1px solid rgba(0, 0, 0, .25);
             border-radius: 6px;
-            opacity: .35;
             pointer-events: none;
         }
 
+        /* All printed text lives here */
         .layer {
             position: absolute;
             left: var(--check-left);
             top: var(--check-top);
             width: var(--check-w);
             height: var(--check-h);
-            transform: translate(var(--global-x, 0px), var(--global-y, 0px));
             pointer-events: none;
-            /* keeps printing clean */
+            transform: translate(var(--global-x, 0px), var(--global-y, 0px));
         }
 
         .field {
@@ -158,28 +175,10 @@
             font-size: 13.5pt;
             white-space: nowrap;
             color: #111;
+            transform: translate(var(--fx, 0px), var(--fy, 0px));
         }
 
-        /* Guides (preview only) */
-        .guides {
-            position: absolute;
-            left: var(--check-left);
-            top: var(--check-top);
-            width: var(--check-w);
-            height: var(--check-h);
-            pointer-events: none;
-            opacity: 0;
-            background-image:
-                linear-gradient(to right, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(0, 0, 0, 0.08) 1px, transparent 1px);
-            background-size: 0.25in 0.25in;
-        }
-
-        .show-guides .guides {
-            opacity: 1;
-        }
-
-        /* Print */
+        /* PRINT: completely clean page */
         @media print {
             body {
                 background: #fff;
@@ -191,7 +190,7 @@
             }
 
             .panel {
-                display: none;
+                display: none !important;
             }
 
             .page {
@@ -204,8 +203,7 @@
                 border: none;
             }
 
-            .check-outline,
-            .guides {
+            .check-outline {
                 display: none !important;
             }
         }
@@ -215,7 +213,12 @@
 <body>
     <div class="wrap">
         <div class="panel">
-            <h1>First Horizon Check Print</h1>
+            <h1>Check Print (Clean)</h1>
+            <div class="note">
+                To remove the top-left date and bottom-left URL:<br>
+                <b>Print → More settings → uncheck “Headers and footers”</b><br>
+                Also set <b>Scale = 100%</b>.
+            </div>
 
             <div class="row">
                 <label for="payee">Pay to</label>
@@ -232,21 +235,53 @@
                 <input id="date" type="date" />
             </div>
 
-            <hr style="border:none;border-top:1px solid #eef1f6;margin:12px 0;">
+            <div class="section-title">Global alignment (moves ALL fields)</div>
 
             <div class="row">
                 <label for="globalX">Global X</label>
-                <input id="globalX" type="range" min="-120" max="120" value="0" />
+                <input id="globalX" type="range" min="-200" max="200" value="0" />
             </div>
-
             <div class="row">
                 <label for="globalY">Global Y</label>
-                <input id="globalY" type="range" min="-120" max="120" value="0" />
+                <input id="globalY" type="range" min="-200" max="200" value="0" />
+            </div>
+
+            <div class="section-title">Fine tuning (per field)</div>
+
+            <div class="row">
+                <label for="payeeX">Payee X</label>
+                <input id="payeeX" type="range" min="-120" max="120" value="0" />
+            </div>
+            <div class="row">
+                <label for="payeeY">Payee Y</label>
+                <input id="payeeY" type="range" min="-120" max="120" value="0" />
             </div>
 
             <div class="row">
-                <label for="guides">Guides</label>
-                <input id="guides" type="checkbox" />
+                <label for="wordsX">Words X</label>
+                <input id="wordsX" type="range" min="-120" max="120" value="0" />
+            </div>
+            <div class="row">
+                <label for="wordsY">Words Y</label>
+                <input id="wordsY" type="range" min="-120" max="120" value="0" />
+            </div>
+
+            <div class="row">
+                <label for="numX">$ Amount X</label>
+                <input id="numX" type="range" min="-120" max="120" value="0" />
+            </div>
+            <div class="row">
+                <label for="numY">$ Amount Y</label>
+                <input id="numY" type="range" min="-120" max="120" value="0" />
+            </div>
+
+            <div class="row">
+                <label for="dateX">Date X</label>
+                <input id="dateX" type="range" min="-120" max="120" value="0" />
+            </div>
+            <div class="row">
+                <label for="dateY">Date Y</label>
+                <input id="dateY" type="range" min="-120" max="120" value="0" />
             </div>
 
             <div class="btns">
@@ -254,33 +289,24 @@
                 <button id="demoBtn">Demo (1455.00)</button>
                 <button id="resetBtn">Reset offsets</button>
             </div>
-
-            <div class="hint">
-                <b>What prints:</b> Date, Payee line, numeric amount, written amount.<br><br>
-                <b>Alignment:</b> print on blank paper first, hold it behind a real check to see offset, then adjust
-                Global X/Y.<br>
-                <b>Printer:</b> set Scale = <b>100%</b>, disable “Fit to page”.
-            </div>
         </div>
 
         <div class="page">
-            <div class="paper" id="paper">
+            <div class="paper">
                 <div class="check-outline"></div>
-                <div class="guides"></div>
 
-                <!-- Printing layer (text only) -->
                 <div class="layer" id="layer">
-                    <!-- Based on the demo image: -->
-                    <!-- Date: top-right -->
+                    <!-- Positions tuned to the demo image as a starting point -->
+                    <!-- Date (top-right) -->
                     <div class="field" id="fDate" style="left: 6.65in; top: 0.45in;"></div>
 
-                    <!-- Payee line: "Pay to the Order of" line -->
+                    <!-- Payee line -->
                     <div class="field" id="fPayee" style="left: 1.20in; top: 1.08in; font-size: 14pt;"></div>
 
-                    <!-- Numeric amount: right side on payee line -->
+                    <!-- Numeric amount -->
                     <div class="field" id="fNum" style="left: 7.05in; top: 1.08in; font-size: 14pt;"></div>
 
-                    <!-- Words line: long line below payee -->
+                    <!-- Amount in words -->
                     <div class="field" id="fWords"
                         style="left: 0.55in; top: 1.62in; font-size: 13pt; max-width: 7.6in; overflow:hidden; text-overflow:ellipsis;">
                     </div>
@@ -290,19 +316,17 @@
     </div>
 
     <script>
-        // ----------------- Number to Words (check style) -----------------
+        // ---------- Number-to-words (check format) ----------
         const ONES = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
         const TEENS = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
         const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
         const THOUSANDS = ["", "Thousand", "Million", "Billion", "Trillion"];
 
-        function chunkToWords(n) { // 0..999
+        function chunkToWords(n) {
             const words = [];
             const h = Math.floor(n / 100);
             const r = n % 100;
-
-            if (h > 0) { words.push(ONES[h], "Hundred"); }
-
+            if (h > 0) words.push(ONES[h], "Hundred");
             if (r >= 10 && r <= 19) {
                 words.push(TEENS[r - 10]);
             } else {
@@ -353,21 +377,34 @@
             return `${String(m).padStart(2, "0")}/${String(d).padStart(2, "0")}/${y}`;
         }
 
-        // ----------------- UI -----------------
+        // ---------- UI wiring ----------
         const payeeEl = document.getElementById("payee");
         const amountEl = document.getElementById("amount");
         const dateEl = document.getElementById("date");
+
         const globalXEl = document.getElementById("globalX");
         const globalYEl = document.getElementById("globalY");
-        const guidesEl = document.getElementById("guides");
+
+        const payeeXEl = document.getElementById("payeeX");
+        const payeeYEl = document.getElementById("payeeY");
+        const wordsXEl = document.getElementById("wordsX");
+        const wordsYEl = document.getElementById("wordsY");
+        const numXEl = document.getElementById("numX");
+        const numYEl = document.getElementById("numY");
+        const dateXEl = document.getElementById("dateX");
+        const dateYEl = document.getElementById("dateY");
+
+        const layer = document.getElementById("layer");
 
         const fDate = document.getElementById("fDate");
         const fPayee = document.getElementById("fPayee");
         const fNum = document.getElementById("fNum");
         const fWords = document.getElementById("fWords");
 
-        const layer = document.getElementById("layer");
-        const paper = document.getElementById("paper");
+        function setFieldOffset(el, x, y) {
+            el.style.setProperty("--fx", (Number(x) || 0) + "px");
+            el.style.setProperty("--fy", (Number(y) || 0) + "px");
+        }
 
         function render() {
             fPayee.textContent = payeeEl.value || "";
@@ -380,15 +417,20 @@
 
             fDate.textContent = formatDateISOToMMDDYYYY(dateEl.value);
 
-            const gx = Number(globalXEl.value || 0);
-            const gy = Number(globalYEl.value || 0);
-            layer.style.setProperty("--global-x", gx + "px");
-            layer.style.setProperty("--global-y", gy + "px");
+            layer.style.setProperty("--global-x", (Number(globalXEl.value) || 0) + "px");
+            layer.style.setProperty("--global-y", (Number(globalYEl.value) || 0) + "px");
 
-            paper.classList.toggle("show-guides", guidesEl.checked);
+            setFieldOffset(fPayee, payeeXEl.value, payeeYEl.value);
+            setFieldOffset(fWords, wordsXEl.value, wordsYEl.value);
+            setFieldOffset(fNum, numXEl.value, numYEl.value);
+            setFieldOffset(fDate, dateXEl.value, dateYEl.value);
         }
 
-        [payeeEl, amountEl, dateEl, globalXEl, globalYEl, guidesEl].forEach(el => {
+        [
+            payeeEl, amountEl, dateEl,
+            globalXEl, globalYEl,
+            payeeXEl, payeeYEl, wordsXEl, wordsYEl, numXEl, numYEl, dateXEl, dateYEl
+        ].forEach(el => {
             el.addEventListener("input", render);
             el.addEventListener("change", render);
         });
@@ -397,15 +439,17 @@
 
         document.getElementById("resetBtn").addEventListener("click", () => {
             globalXEl.value = 0; globalYEl.value = 0;
+            payeeXEl.value = 0; payeeYEl.value = 0;
+            wordsXEl.value = 0; wordsYEl.value = 0;
+            numXEl.value = 0; numYEl.value = 0;
+            dateXEl.value = 0; dateYEl.value = 0;
             render();
         });
 
         document.getElementById("demoBtn").addEventListener("click", () => {
             payeeEl.value = "Sample Payee";
             amountEl.value = "1455.00";
-            const today = new Date();
-            const iso = today.toISOString().slice(0, 10);
-            dateEl.value = iso;
+            dateEl.value = new Date().toISOString().slice(0, 10);
             render();
         });
 
