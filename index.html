@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>First Horizon Check Print</title>
+    <style>
+        :root {
+            --page-w: 11in;
+            --page-h: 8.5in;
+
+            /* Where the physical check sits on the paper (if you're feeding a full sheet).
+         If you're printing onto a pre-printed check sheet, you may need to adjust these.
+      */
+            --check-left: 0.75in;
+            --check-top: 1.0in;
+
+            --check-w: 8.5in;
+            --check-h: 3.5in;
+
+            --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+        }
+
+        body {
+            margin: 0;
+            font-family: var(--sans);
+            background: #f5f6f8;
+            color: #111;
+        }
+
+        .wrap {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 16px;
+            padding: 16px;
+            align-items: start;
+        }
+
+        .panel {
+            background: #fff;
+            border: 1px solid #e6e8ee;
+            border-radius: 12px;
+            padding: 14px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, .05);
+            position: sticky;
+            top: 12px;
+        }
+
+        .panel h1 {
+            font-size: 16px;
+            margin: 0 0 10px;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 10px;
+            align-items: center;
+            margin: 10px 0;
+        }
+
+        label {
+            font-size: 13px;
+            color: #333;
+        }
+
+        input[type="text"],
+        input[type="date"],
+        input[type="number"] {
+            width: 100%;
+            padding: 9px 10px;
+            border: 1px solid #cfd6e3;
+            border-radius: 10px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        .btns {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        button {
+            border: 1px solid #cfd6e3;
+            background: #fff;
+            padding: 9px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        button.primary {
+            background: #111;
+            color: #fff;
+            border-color: #111;
+        }
+
+        .hint {
+            font-size: 12px;
+            color: #555;
+            line-height: 1.4;
+            margin-top: 10px;
+        }
+
+        .page {
+            background: #fff;
+            border: 1px solid #e6e8ee;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, .05);
+            padding: 12px;
+            overflow: auto;
+        }
+
+        .paper {
+            width: var(--page-w);
+            height: var(--page-h);
+            background: #fff;
+            position: relative;
+            margin: 0 auto;
+            border: 1px dashed #aaa;
+        }
+
+        /* Preview-only check outline */
+        .check-outline {
+            position: absolute;
+            left: var(--check-left);
+            top: var(--check-top);
+            width: var(--check-w);
+            height: var(--check-h);
+            border: 1px solid #999;
+            border-radius: 6px;
+            opacity: .35;
+            pointer-events: none;
+        }
+
+        .layer {
+            position: absolute;
+            left: var(--check-left);
+            top: var(--check-top);
+            width: var(--check-w);
+            height: var(--check-h);
+            transform: translate(var(--global-x, 0px), var(--global-y, 0px));
+            pointer-events: none;
+            /* keeps printing clean */
+        }
+
+        .field {
+            position: absolute;
+            font-family: var(--mono);
+            font-size: 13.5pt;
+            white-space: nowrap;
+            color: #111;
+        }
+
+        /* Guides (preview only) */
+        .guides {
+            position: absolute;
+            left: var(--check-left);
+            top: var(--check-top);
+            width: var(--check-w);
+            height: var(--check-h);
+            pointer-events: none;
+            opacity: 0;
+            background-image:
+                linear-gradient(to right, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 0, 0, 0.08) 1px, transparent 1px);
+            background-size: 0.25in 0.25in;
+        }
+
+        .show-guides .guides {
+            opacity: 1;
+        }
+
+        /* Print */
+        @media print {
+            body {
+                background: #fff;
+            }
+
+            .wrap {
+                display: block;
+                padding: 0;
+            }
+
+            .panel {
+                display: none;
+            }
+
+            .page {
+                border: none;
+                box-shadow: none;
+                padding: 0;
+            }
+
+            .paper {
+                border: none;
+            }
+
+            .check-outline,
+            .guides {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="panel">
+            <h1>First Horizon Check Print</h1>
+
+            <div class="row">
+                <label for="payee">Pay to</label>
+                <input id="payee" type="text" placeholder="Payee name" />
+            </div>
+
+            <div class="row">
+                <label for="amount">Amount ($)</label>
+                <input id="amount" type="number" step="0.01" placeholder="1455.00" />
+            </div>
+
+            <div class="row">
+                <label for="date">Date</label>
+                <input id="date" type="date" />
+            </div>
+
+            <hr style="border:none;border-top:1px solid #eef1f6;margin:12px 0;">
+
+            <div class="row">
+                <label for="globalX">Global X</label>
+                <input id="globalX" type="range" min="-120" max="120" value="0" />
+            </div>
+
+            <div class="row">
+                <label for="globalY">Global Y</label>
+                <input id="globalY" type="range" min="-120" max="120" value="0" />
+            </div>
+
+            <div class="row">
+                <label for="guides">Guides</label>
+                <input id="guides" type="checkbox" />
+            </div>
+
+            <div class="btns">
+                <button class="primary" id="printBtn">Print</button>
+                <button id="demoBtn">Demo (1455.00)</button>
+                <button id="resetBtn">Reset offsets</button>
+            </div>
+
+            <div class="hint">
+                <b>What prints:</b> Date, Payee line, numeric amount, written amount.<br><br>
+                <b>Alignment:</b> print on blank paper first, hold it behind a real check to see offset, then adjust
+                Global X/Y.<br>
+                <b>Printer:</b> set Scale = <b>100%</b>, disable “Fit to page”.
+            </div>
+        </div>
+
+        <div class="page">
+            <div class="paper" id="paper">
+                <div class="check-outline"></div>
+                <div class="guides"></div>
+
+                <!-- Printing layer (text only) -->
+                <div class="layer" id="layer">
+                    <!-- Based on the demo image: -->
+                    <!-- Date: top-right -->
+                    <div class="field" id="fDate" style="left: 6.65in; top: 0.45in;"></div>
+
+                    <!-- Payee line: "Pay to the Order of" line -->
+                    <div class="field" id="fPayee" style="left: 1.20in; top: 1.08in; font-size: 14pt;"></div>
+
+                    <!-- Numeric amount: right side on payee line -->
+                    <div class="field" id="fNum" style="left: 7.05in; top: 1.08in; font-size: 14pt;"></div>
+
+                    <!-- Words line: long line below payee -->
+                    <div class="field" id="fWords"
+                        style="left: 0.55in; top: 1.62in; font-size: 13pt; max-width: 7.6in; overflow:hidden; text-overflow:ellipsis;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ----------------- Number to Words (check style) -----------------
+        const ONES = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
+        const TEENS = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+        const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+        const THOUSANDS = ["", "Thousand", "Million", "Billion", "Trillion"];
+
+        function chunkToWords(n) { // 0..999
+            const words = [];
+            const h = Math.floor(n / 100);
+            const r = n % 100;
+
+            if (h > 0) { words.push(ONES[h], "Hundred"); }
+
+            if (r >= 10 && r <= 19) {
+                words.push(TEENS[r - 10]);
+            } else {
+                const t = Math.floor(r / 10);
+                const o = r % 10;
+                if (t > 0) words.push(TENS[t]);
+                if (o > 0) words.push(ONES[o]);
+            }
+            return words.join(" ").trim();
+        }
+
+        function numberToWordsInt(num) {
+            if (num === 0) return "Zero";
+            let i = 0;
+            const parts = [];
+            while (num > 0) {
+                const chunk = num % 1000;
+                if (chunk !== 0) {
+                    const w = chunkToWords(chunk);
+                    const label = THOUSANDS[i];
+                    parts.unshift(label ? `${w} ${label}` : w);
+                }
+                num = Math.floor(num / 1000);
+                i++;
+            }
+            return parts.join(" ").replace(/\s+/g, " ").trim();
+        }
+
+        function formatMoney(amountStr) {
+            const amt = Number(amountStr);
+            if (!isFinite(amt) || amt < 0) return "";
+            return amt.toFixed(2);
+        }
+
+        function amountToCheckWords(amountStr) {
+            const amt = Number(amountStr);
+            if (!isFinite(amt) || amt < 0) return "";
+            const dollars = Math.floor(amt + 1e-9);
+            const cents = Math.round((amt - dollars) * 100 + 1e-9);
+            const cents2 = String(cents).padStart(2, "0");
+            return `${numberToWordsInt(dollars)} and ${cents2}/100`;
+        }
+
+        function formatDateISOToMMDDYYYY(iso) {
+            if (!iso) return "";
+            const [y, m, d] = iso.split("-").map(Number);
+            if (!y || !m || !d) return "";
+            return `${String(m).padStart(2, "0")}/${String(d).padStart(2, "0")}/${y}`;
+        }
+
+        // ----------------- UI -----------------
+        const payeeEl = document.getElementById("payee");
+        const amountEl = document.getElementById("amount");
+        const dateEl = document.getElementById("date");
+        const globalXEl = document.getElementById("globalX");
+        const globalYEl = document.getElementById("globalY");
+        const guidesEl = document.getElementById("guides");
+
+        const fDate = document.getElementById("fDate");
+        const fPayee = document.getElementById("fPayee");
+        const fNum = document.getElementById("fNum");
+        const fWords = document.getElementById("fWords");
+
+        const layer = document.getElementById("layer");
+        const paper = document.getElementById("paper");
+
+        function render() {
+            fPayee.textContent = payeeEl.value || "";
+
+            const amtText = formatMoney(amountEl.value);
+            fNum.textContent = amtText ? `$${amtText}` : "";
+
+            const words = amountToCheckWords(amountEl.value);
+            fWords.textContent = words || "";
+
+            fDate.textContent = formatDateISOToMMDDYYYY(dateEl.value);
+
+            const gx = Number(globalXEl.value || 0);
+            const gy = Number(globalYEl.value || 0);
+            layer.style.setProperty("--global-x", gx + "px");
+            layer.style.setProperty("--global-y", gy + "px");
+
+            paper.classList.toggle("show-guides", guidesEl.checked);
+        }
+
+        [payeeEl, amountEl, dateEl, globalXEl, globalYEl, guidesEl].forEach(el => {
+            el.addEventListener("input", render);
+            el.addEventListener("change", render);
+        });
+
+        document.getElementById("printBtn").addEventListener("click", () => window.print());
+
+        document.getElementById("resetBtn").addEventListener("click", () => {
+            globalXEl.value = 0; globalYEl.value = 0;
+            render();
+        });
+
+        document.getElementById("demoBtn").addEventListener("click", () => {
+            payeeEl.value = "Sample Payee";
+            amountEl.value = "1455.00";
+            const today = new Date();
+            const iso = today.toISOString().slice(0, 10);
+            dateEl.value = iso;
+            render();
+        });
+
+        render();
+    </script>
+</body>
+
+</html>
