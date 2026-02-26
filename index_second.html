@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Check Print</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        @page {
+            size: 11in 8.5in;
+            margin: 0;
+        }
+
+        :root {
+            --page-w: 11in;
+            --page-h: 8.5in;
+
+            --check-w: 27cm;
+            --check-h: 7.5cm;
+
+            /* YOUR WORKING CALIBRATION */
+            --base-x: 7.06cm;
+            --base-y: 6.36cm;
+
+            --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+        }
+
+        body {
+            background: #f5f6f8;
+        }
+
+        /* Hidden print surface */
+        #printPage {
+            display: none;
+        }
+
+        /* Check positioning */
+        .check-space {
+            position: absolute;
+            left: var(--base-x);
+            top: var(--base-y);
+            width: var(--check-w);
+            height: var(--check-h);
+            pointer-events: none;
+        }
+
+        .field {
+            position: absolute;
+            font-family: var(--mono);
+            font-size: 13.5pt;
+            white-space: nowrap;
+            color: #111;
+            max-width: 25cm;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* PRINT MODE */
+        @media print {
+
+            html,
+            body {
+                margin: 0 !important;
+                padding: 0 !important;
+                width: var(--page-w) !important;
+                height: var(--page-h) !important;
+                overflow: hidden !important;
+                background: #fff !important;
+                -webkit-text-size-adjust: 100% !important;
+            }
+
+            body * {
+                display: none !important;
+            }
+
+            #printPage {
+                display: block !important;
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: var(--page-w);
+                height: var(--page-h);
+            }
+
+            #printPage * {
+                display: block !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container py-4">
+        <div class="row justify-content-center">
+            <div class="col-12 col-lg-6">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body p-4">
+
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <div class="fw-bold fs-5">Check Print</div>
+                                <div class="text-muted small">Optimized for Mac printing.</div>
+                            </div>
+                            <span class="badge bg-dark rounded-pill">Letter Landscape</span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Pay to</label>
+                            <select id="payeeSelect" class="form-select form-select-lg">
+                                <option value="Coca-Cola Consolidated">Coca-Cola Consolidated</option>
+                                <option value="Tri State">Tri State</option>
+                                <option value="__custom__">Custom…</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3 d-none" id="customWrap">
+                            <input id="customPayee" class="form-control form-control-lg" placeholder="Custom payee">
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Amount ($)</label>
+                                <input id="amount" class="form-control form-control-lg" type="number" step="0.01">
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Date</label>
+                                <input id="date" class="form-control form-control-lg" type="date">
+                            </div>
+                        </div>
+
+                        <div class="d-grid mt-4">
+                            <button id="printBtn" class="btn btn-dark btn-lg">Print</button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRINT SURFACE -->
+    <div id="printPage">
+        <div class="check-space">
+
+            <div class="field" id="fDate" style="left:15cm; top:2.40cm;"></div>
+            <div class="field" id="fPayee" style="left:2.50cm; top:3.45cm;"></div>
+            <div class="field" id="fWords" style="left:1cm; top:4.35cm;"></div>
+            <div class="field" id="fNum" style="left:17.50cm; top:3.55cm;"></div>
+
+        </div>
+    </div>
+
+    <script>
+        const payeeSelect = document.getElementById("payeeSelect");
+        const customWrap = document.getElementById("customWrap");
+        const customPayee = document.getElementById("customPayee");
+        const amount = document.getElementById("amount");
+        const date = document.getElementById("date");
+
+        const fDate = document.getElementById("fDate");
+        const fPayee = document.getElementById("fPayee");
+        const fWords = document.getElementById("fWords");
+        const fNum = document.getElementById("fNum");
+
+        /* ---------- FULL number-to-words (restored) ---------- */
+        const ONES = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
+        const TEENS = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+        const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+        const THOUSANDS = ["", "Thousand", "Million", "Billion", "Trillion"];
+
+        function chunkToWords(n) {
+            const words = [];
+            const h = Math.floor(n / 100), r = n % 100;
+            if (h > 0) words.push(ONES[h], "Hundred");
+            if (r >= 10 && r <= 19) words.push(TEENS[r - 10]);
+            else {
+                const t = Math.floor(r / 10), o = r % 10;
+                if (t > 0) words.push(TENS[t]);
+                if (o > 0) words.push(ONES[o]);
+            }
+            return words.join(" ").trim();
+        }
+
+        function numberToWordsInt(num) {
+            if (num === 0) return "Zero";
+            let i = 0; const parts = [];
+            while (num > 0) {
+                const chunk = num % 1000;
+                if (chunk !== 0) {
+                    const w = chunkToWords(chunk);
+                    const label = THOUSANDS[i];
+                    parts.unshift(label ? `${w} ${label}` : w);
+                }
+                num = Math.floor(num / 1000);
+                i++;
+            }
+            return parts.join(" ").replace(/\s+/g, " ").trim();
+        }
+
+        function formatMoney(v) {
+            const n = Number(v);
+            return (!isFinite(n) || n < 0) ? "" : n.toFixed(2);
+        }
+
+        function amountToCheckWords(v) {
+            const amt = Number(v);
+            if (!isFinite(amt) || amt < 0) return "";
+            const dollars = Math.floor(amt + 1e-9);
+            const cents = Math.round((amt - dollars) * 100 + 1e-9);
+            return `${numberToWordsInt(dollars)} and ${String(cents).padStart(2, "0")}/100`;
+        }
+
+        function formatDateISOToMMDDYYYY(iso) {
+            if (!iso) return "";
+            const [y, m, d] = iso.split("-");
+            return `${m}/${d}/${y}`;
+        }
+
+        /* ---------- Only the change you asked: auto-fill today ---------- */
+        function setTodayIfEmpty() {
+            if (!date.value) {
+                const today = new Date();
+                date.value = today.toISOString().split("T")[0]; // YYYY-MM-DD
+            }
+        }
+
+        function getPayee() {
+            return payeeSelect.value === "__custom__" ? (customPayee.value || "").trim() : payeeSelect.value;
+        }
+
+        function render() {
+            // Payee
+            fPayee.textContent = getPayee();
+
+            // Amount numeric + words
+            const money = formatMoney(amount.value);
+            fNum.textContent = money ? `$${money}` : "";
+            fWords.textContent = money ? amountToCheckWords(amount.value) : "";
+
+            // Date (auto today)
+            setTodayIfEmpty();
+            fDate.textContent = formatDateISOToMMDDYYYY(date.value);
+        }
+
+        /* UI wiring */
+        payeeSelect.addEventListener("change", () => {
+            customWrap.classList.toggle("d-none", payeeSelect.value !== "__custom__");
+            render();
+        });
+        customPayee.addEventListener("input", render);
+        amount.addEventListener("input", render);
+        date.addEventListener("input", render);
+
+        document.getElementById("printBtn").addEventListener("click", () => window.print());
+
+        /* Init */
+        payeeSelect.value = "Coca-Cola Consolidated";
+        customWrap.classList.add("d-none");
+        setTodayIfEmpty();
+        render();
+    </script>
+
+</body>
+
+</html>
