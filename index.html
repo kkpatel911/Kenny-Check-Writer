@@ -409,7 +409,7 @@
             if (words) doc.text(words, baseX + pos.words.x, baseY + pos.words.y);
 
             doc.setFontSize(14);
-            if (money) doc.text(`$${money}`, baseX + pos.num.x, baseY + pos.num.y);
+            if (money) doc.text(`${money}`, baseX + pos.num.x, baseY + pos.num.y);
 
             // Open PDF (iPhone-friendly)
             const blob = doc.output("blob");
