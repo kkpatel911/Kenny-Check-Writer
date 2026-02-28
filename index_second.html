@@ -7,9 +7,9 @@
     <title>Check Print</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <style>
-        /* Default: Desktop/Mac — landscape page */
+        /* Desktop/Mac: landscape */
         @page {
             size: 11in 8.5in;
             margin: 0;
@@ -20,17 +20,20 @@
             --land-w: 11in;
             --land-h: 8.45in;
 
-            /* Portrait page size (used for iPhone Safari fallback rotation) */
+            /* Portrait page size (used for iPhone Safari rotation fallback) */
             --port-w: 8.5in;
             --port-h: 11in;
 
-            /* Your check coordinate space */
+            /* Check coordinate space */
             --check-w: 27cm;
             --check-h: 7.5cm;
 
-            /* YOUR WORKING CALIBRATION (keep exactly as you set) */
-            --base-x: 7.06cm;
+            /* YOUR WORKING CALIBRATION */
+            --base-x: 11.06cm;
             --base-y: 6.36cm;
+
+            --ios-x: -38mm;
+            --ios-y: 0mm;
 
             --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
         }
@@ -39,12 +42,19 @@
             background: #f5f6f8;
         }
 
-        /* Hide print surface on screen */
+        /* Keep print surface in DOM (NOT display:none) so iPhone Safari doesn't print blank */
         #printPage {
-            display: none;
+            position: fixed;
+            left: -99999px;
+            top: 0;
+            width: var(--land-w);
+            height: var(--land-h);
+            overflow: hidden;
+            background: #fff;
+            opacity: 0;
+            pointer-events: none;
         }
 
-        /* The landscape print canvas (your check lives on this) */
         #landscapeCanvas {
             width: var(--land-w);
             height: var(--land-h);
@@ -53,14 +63,13 @@
             background: #fff;
         }
 
-        /* Your check block */
         .check-space {
             position: absolute;
             left: var(--base-x);
             top: var(--base-y);
             width: var(--check-w);
             height: var(--check-h);
-            pointer-events: none;
+            transform: translate(var(--ios-x), var(--ios-y));
         }
 
         .field {
@@ -74,13 +83,20 @@
             text-overflow: ellipsis;
         }
 
-        /* Readonly amount-words input styling */
         .readonly-input {
             background: #f8f9fa !important;
             cursor: default;
         }
 
-        /* PRINT: show only print page */
+        /* Make the words preview wrap nicely on mobile */
+        #amountWordsPreview {
+            white-space: normal !important;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            resize: none;
+        }
+
+        /* PRINT MODE (reliable: visibility technique) */
         @media print {
 
             html,
@@ -93,33 +109,46 @@
                 text-size-adjust: 100% !important;
             }
 
+            /* Hide everything */
             body * {
-                display: none !important;
+                visibility: hidden !important;
+            }
+
+            /* Show only print surface */
+            #printPage,
+            #printPage * {
+                visibility: visible !important;
             }
 
             #printPage {
-                display: block !important;
-                position: fixed !important;
                 left: 0 !important;
                 top: 0 !important;
-                overflow: hidden !important;
-                background: #fff !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+
                 width: var(--land-w) !important;
                 height: var(--land-h) !important;
-            }
 
-            #landscapeCanvas {
-                display: block !important;
+                position: fixed !important;
+
+                page-break-after: avoid !important;
+                page-break-before: avoid !important;
+                break-after: avoid !important;
+                break-before: avoid !important;
             }
         }
 
         /* iPhone/iPad Safari print fallback:
-       Rotate landscape canvas into portrait so user doesn't need to switch orientation manually. */
+       Safari may insist on portrait. We rotate the LANDSCAPE canvas into portrait automatically. */
         @supports (-webkit-touch-callout: none) {
             @media print {
                 @page {
                     size: 8.5in 11in;
                     margin: 0;
+                }
+
+                .check-space {
+                    transform: translate(var(--ios-x), var(--ios-y)) !important;
                 }
 
                 #printPage {
@@ -138,7 +167,7 @@
 
 <body>
     <!-- UI ONLY -->
-    <div class="container py-4">
+    <div class="container py-4 ui-only">
         <div class="row justify-content-center">
             <div class="col-12 col-lg-6">
                 <div class="card shadow-sm border-0">
@@ -146,8 +175,7 @@
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <div>
                                 <div class="fw-bold fs-5">Check Print</div>
-                                <div class="text-muted small">Mac prints landscape normally. iPhone Safari auto-rotates
-                                    for print.</div>
+                                <div class="text-muted small">Mac prints perfect. iPhone Safari uses auto-rotate.</div>
                             </div>
                             <span class="badge bg-dark rounded-pill">Ready</span>
                         </div>
@@ -177,21 +205,21 @@
                                 <input id="date" class="form-control form-control-lg" type="date">
                             </div>
 
-                            <!-- NEW: read-only live amount-to-words field -->
                             <div class="col-12">
                                 <label class="form-label">Amount in words</label>
                                 <textarea id="amountWordsPreview" class="form-control form-control-lg readonly-input"
-                                    rows="3" readonly style="resize: none;"></textarea>
+                                    rows="2" readonly placeholder="Auto-fills as you type amount"></textarea>
                             </div>
                         </div>
 
                         <div class="d-grid mt-4">
-                            <button id="printBtn" class="btn btn-dark btn-lg">Print</button>
+                            <button id="printBtn" class="btn btn-dark btn-lg">Print (Laptop)</button>
+                            <br>
+                            <button id="pdfBtn" class="btn btn-outline-dark btn-lg">Generate PDF (iPhone)</button>
                         </div>
 
                         <div class="text-muted small mt-3">
-                            Calibration used: <code>base-x 7.06cm</code>, <code>base-y 6.36cm</code>. (No sliders
-                            shown.)
+                            Calibration: <code>base-x 7.06cm</code>, <code>base-y 6.36cm</code>.
                         </div>
                     </div>
                 </div>
@@ -199,7 +227,7 @@
         </div>
     </div>
 
-    <!-- PRINT SURFACE (HIDDEN ON SCREEN) -->
+    <!-- PRINT SURFACE (OFFSCREEN ON SCREEN, VISIBLE IN PRINT) -->
     <div id="printPage" aria-hidden="true">
         <div id="landscapeCanvas">
             <div class="check-space">
@@ -225,7 +253,6 @@
         const fWords = document.getElementById("fWords");
         const fNum = document.getElementById("fNum");
 
-        // Full number-to-words
         const ONES = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
         const TEENS = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
         const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
@@ -261,7 +288,6 @@
         }
 
         function formatMoney(v) {
-            // Accept "1455." and "1455.0" gracefully
             const n = Number(String(v).trim());
             return (!isFinite(n) || n < 0) ? "" : n.toFixed(2);
         }
@@ -292,24 +318,86 @@
                 : payeeSelect.value;
         }
 
-        function render() {
-            // Date: auto today
-            setTodayIfEmpty();
-            fDate.textContent = formatDateISOToMMDDYYYY(date.value);
+        function autoGrowPreview() {
+            amountWordsPreview.style.height = "auto";
+            amountWordsPreview.style.height = amountWordsPreview.scrollHeight + "px";
+        }
 
-            // Payee
+        function render() {
+            setTodayIfEmpty();
+
+            fDate.textContent = formatDateISOToMMDDYYYY(date.value);
             fPayee.textContent = getPayee();
 
-            // Amount numeric + words
             const money = formatMoney(amount.value);
             fNum.textContent = money ? `$${money}` : "";
 
             const words = money ? amountToCheckWords(amount.value) : "";
             fWords.textContent = words;
 
-            // NEW: live preview field (readonly)
             amountWordsPreview.value = words;
+            autoGrowPreview();
         }
+
+        // ---------- PDF (iPhone-safe) ----------
+        function cmToMm(cm) { return cm * 10; }
+
+        function getCurrentValues() {
+            const payee = getPayee();
+            const money = formatMoney(amount.value);
+            const words = money ? amountToCheckWords(amount.value) : "";
+            const dateStr = formatDateISOToMMDDYYYY(date.value);
+            return { payee, money, words, dateStr };
+        }
+
+        async function generatePDF() {
+            setTodayIfEmpty();
+            render();
+
+            const { jsPDF } = window.jspdf;
+
+            // Letter landscape in mm: 279.4 x 215.9
+            const doc = new jsPDF({
+                orientation: "landscape",
+                unit: "mm",
+                format: [279.4, 215.9]
+            });
+
+            // Your calibration (mm)
+            const baseX = 70.6;  // 7.06cm
+            const baseY = 63.6;  // 6.36cm
+
+            // Your field positions (cm -> mm)
+            const pos = {
+                date: { x: cmToMm(15), y: cmToMm(2.40) },
+                payee: { x: cmToMm(2.50), y: cmToMm(3.45) },
+                words: { x: cmToMm(1.00), y: cmToMm(4.35) },
+                num: { x: cmToMm(17.50), y: cmToMm(3.55) }
+            };
+
+            const { payee, money, words, dateStr } = getCurrentValues();
+
+            // Font: Courier-ish for check look
+            doc.setFont("courier", "normal");
+            doc.setFontSize(14);
+
+            // Draw text at absolute positions (base + field offset)
+            if (dateStr) doc.text(dateStr, baseX + pos.date.x, baseY + pos.date.y);
+            if (payee) doc.text(payee, baseX + pos.payee.x, baseY + pos.payee.y);
+
+            doc.setFontSize(13);
+            if (words) doc.text(words, baseX + pos.words.x, baseY + pos.words.y);
+
+            doc.setFontSize(14);
+            if (money) doc.text(`$${money}`, baseX + pos.num.x, baseY + pos.num.y);
+
+            // Open PDF (iPhone-friendly)
+            const blob = doc.output("blob");
+            const url = URL.createObjectURL(blob);
+            window.open(url, "_blank");
+        }
+
+        document.getElementById("pdfBtn").addEventListener("click", generatePDF);
 
         payeeSelect.addEventListener("change", () => {
             customWrap.classList.toggle("d-none", payeeSelect.value !== "__custom__");
