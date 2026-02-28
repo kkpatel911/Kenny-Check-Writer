@@ -35,6 +35,11 @@
             --ios-x: -38mm;
             --ios-y: 0mm;
 
+            --pdf-x: -70mm;
+            /* extra PDF tweak for iPhone */
+            --pdf-y: 0mm;
+            /* extra PDF tweak for iPhone */
+
             --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
         }
 
@@ -363,9 +368,22 @@
                 format: [279.4, 215.9]
             });
 
-            // Your calibration (mm)
-            const baseX = 70.6;  // 7.06cm
-            const baseY = 63.6;  // 6.36cm
+            // Read calibration directly from CSS variables so HTML + PDF match
+            const styles = getComputedStyle(document.documentElement);
+
+            // base-x/base-y are in cm; ios-x/ios-y/pdf-x/pdf-y are in mm
+            const baseXmm = parseFloat(styles.getPropertyValue("--base-x")) * 10; // cm -> mm
+            const baseYmm = parseFloat(styles.getPropertyValue("--base-y")) * 10; // cm -> mm
+
+            const iosXmm = parseFloat(styles.getPropertyValue("--ios-x")) || 0;  // mm
+            const iosYmm = parseFloat(styles.getPropertyValue("--ios-y")) || 0;  // mm
+
+            const pdfXmm = parseFloat(styles.getPropertyValue("--pdf-x")) || 0;  // mm
+            const pdfYmm = parseFloat(styles.getPropertyValue("--pdf-y")) || 0;  // mm
+
+            // Final base used for PDF = your HTML base + iPhone tweak + PDF tweak
+            const baseX = baseXmm + iosXmm + pdfXmm;
+            const baseY = baseYmm + iosYmm + pdfYmm;
 
             // Your field positions (cm -> mm)
             const pos = {
@@ -377,11 +395,9 @@
 
             const { payee, money, words, dateStr } = getCurrentValues();
 
-            // Font: Courier-ish for check look
             doc.setFont("courier", "normal");
-            doc.setFontSize(14);
 
-            // Draw text at absolute positions (base + field offset)
+            doc.setFontSize(14);
             if (dateStr) doc.text(dateStr, baseX + pos.date.x, baseY + pos.date.y);
             if (payee) doc.text(payee, baseX + pos.payee.x, baseY + pos.payee.y);
 
