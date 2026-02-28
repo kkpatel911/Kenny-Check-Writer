@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Check Print (Single Page)</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        /* Force EXACT single page */
+        @page {
+            size: 11in 8.5in;
+            margin: 0;
+        }
+
+        /* Letter landscape */
+
+        :root {
+            --page-w: 11in;
+            --page-h: 8.5in;
+
+            --check-w: 27cm;
+            --check-h: 7.5cm;
+
+            --base-x: 7.06cm;
+            --base-y: 6.36cm;
+            /* centered + 0.60mm calibration */
+
+            --gx: 0mm;
+            --gy: 0mm;
+
+            --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+
+        body {
+            background: #f5f6f8;
+        }
+
+        /* UI layout (screen only) */
+        .app-wrap {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            gap: 16px;
+            padding: 16px;
+            align-items: start;
+        }
+
+        @media (max-width: 992px) {
+            .app-wrap {
+                grid-template-columns: 1fr;
+            }
+
+            .sticky-panel {
+                position: static;
+            }
+        }
+
+        .sticky-panel {
+            position: sticky;
+            top: 12px;
+        }
+
+        /* Preview surface (screen) */
+        .paper-preview {
+            width: 27.94cm;
+            height: 21.59cm;
+            position: relative;
+            margin: 0 auto;
+            background: #fff;
+            border: 1px dashed rgba(0, 0, 0, .25);
+            border-radius: 14px;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        /* PRINT surface: this is the ONLY thing that prints */
+        #printPage {
+            width: var(--page-w);
+            height: var(--page-h);
+            position: relative;
+            background: #fff;
+            overflow: hidden;
+        }
+
+        /* .check-space {
+            position: absolute;
+            left: var(--base-x);
+            top: var(--base-y);
+            width: var(--check-w);
+            height: var(--check-h);
+            transform: translate(var(--gx), var(--gy));
+            pointer-events: none;
+        } */
+
+        .check-space {
+            position: absolute;
+            left: var(--base-x);
+            top: var(--base-y);
+            width: var(--check-w);
+            height: var(--check-h);
+            transform: translate(var(--gx), var(--gy));
+        }
+
+        .outline {
+            position: absolute;
+            inset: 0;
+            border: 1px solid rgba(0, 0, 0, .18);
+            border-radius: 10px;
+            opacity: .35;
+        }
+
+        .field {
+            position: absolute;
+            font-family: var(--mono);
+            font-size: 13.5pt;
+            white-space: nowrap;
+            color: #111;
+            max-width: 25cm;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* --- PRINT RULES: guarantee ONE page --- */
+        @media print {
+
+            html,
+            body {
+                margin: 0 !important;
+                padding: 0 !important;
+                width: var(--page-w) !important;
+                height: var(--page-h) !important;
+                overflow: hidden !important;
+                background: #fff !important;
+            }
+
+            /* Print ONLY #printPage */
+            body * {
+                visibility: hidden !important;
+            }
+
+            #printPage,
+            #printPage * {
+                visibility: visible !important;
+            }
+
+            #printPage {
+                position: fixed !important;
+                left: 0 !important;
+                top: 0 !important;
+                page-break-after: avoid !important;
+                page-break-before: avoid !important;
+                break-after: avoid !important;
+                break-before: avoid !important;
+            }
+
+            .outline {
+                display: none !important;
+            }
+
+            /* no outline on real print */
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-wrap">
+
+        <!-- UI (screen only) -->
+        <div class="sticky-panel">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h5 class="mb-0">Check Print</h5>
+                        <span class="badge text-bg-secondary">cm/mm</span>
+                    </div>
+
+                    <div class="alert alert-info py-2 small mb-3">
+                        If you don’t see “Headers and footers” on Mac Chrome, use
+                        <b>Print using system dialog…</b> and disable web headers/footers there.
+                        Keep <b>Scale = 100%</b>.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Pay to</label>
+                        <select id="payeeSelect" class="form-select">
+                            <option value="Coca-Cola Consolidated">Coca-Cola Consolidated</option>
+                            <option value="Tri State">Tri State</option>
+                            <option value="__custom__">Custom…</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3" id="customPayeeWrap" style="display:none;">
+                        <label class="form-label">Custom payee</label>
+                        <input id="customPayee" class="form-control" type="text" placeholder="Enter payee name" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Amount ($)</label>
+                        <input id="amount" class="form-control" type="number" step="0.01" inputmode="decimal"
+                            placeholder="927.00" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Date</label>
+                        <input id="date" class="form-control" type="date" />
+                    </div>
+
+                    <div class="row g-3 mb-2">
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label">Global X (mm)</label>
+                            <input id="gx" class="form-range" type="range" min="-30" max="30" value="0" />
+                            <div class="small text-muted" id="gxRead">0 mm</div>
+                        </div>
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label">Global Y (mm)</label>
+                            <input id="gy" class="form-range" type="range" min="-30" max="30" value="0" />
+                            <div class="small text-muted" id="gyRead">0 mm</div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 flex-wrap mt-3">
+                        <button class="btn btn-dark" id="printBtn" type="button">Print</button>
+                        <button class="btn btn-outline-secondary" id="demoBtn" type="button">Demo</button>
+                        <button class="btn btn-outline-secondary" id="resetBtn" type="button">Reset</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preview (screen only) -->
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="paper-preview">
+                    <!-- reuse the same print content for preview by cloning via JS -->
+                    <div id="previewMount"></div>
+                </div>
+                <div class="small text-muted mt-2">
+                    Preview shows the same content. Printing is forced to a single page.
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- The ONE printable page -->
+    <div id="printPage" aria-hidden="true">
+        <div class="check-space" id="checkSpace">
+            <div class="outline"></div>
+
+            <!-- Your coordinates (cm) -->
+            <div class="field" id="fDate" style="left:15cm; top:2.40cm;"></div>
+            <div class="field" id="fPayee" style="left:2.50cm; top:3.45cm; font-size:14pt;"></div>
+            <div class="field" id="fWords" style="left:1cm; top:4.35cm; font-size:13pt; max-width:25cm;"></div>
+            <div class="field" id="fNum" style="left:17.50cm; top:3.55cm; font-size:14pt;"></div>
+        </div>
+    </div>
+
+    <script>
+        // ---------- Number-to-words ----------
+        const ONES = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
+        const TEENS = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+        const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+        const THOUSANDS = ["", "Thousand", "Million", "Billion", "Trillion"];
+
+        function chunkToWords(n) {
+            const words = [];
+            const h = Math.floor(n / 100), r = n % 100;
+            if (h > 0) words.push(ONES[h], "Hundred");
+            if (r >= 10 && r <= 19) words.push(TEENS[r - 10]);
+            else {
+                const t = Math.floor(r / 10), o = r % 10;
+                if (t > 0) words.push(TENS[t]);
+                if (o > 0) words.push(ONES[o]);
+            }
+            return words.join(" ").trim();
+        }
+
+        function numberToWordsInt(num) {
+            if (num === 0) return "Zero";
+            let i = 0; const parts = [];
+            while (num > 0) {
+                const chunk = num % 1000;
+                if (chunk !== 0) {
+                    const w = chunkToWords(chunk);
+                    const label = THOUSANDS[i];
+                    parts.unshift(label ? `${w} ${label}` : w);
+                }
+                num = Math.floor(num / 1000);
+                i++;
+            }
+            return parts.join(" ").replace(/\s+/g, " ").trim();
+        }
+
+        function formatMoney(v) {
+            const amt = Number(v);
+            if (!isFinite(amt) || amt < 0) return "";
+            return amt.toFixed(2);
+        }
+
+        function amountToCheckWords(v) {
+            const amt = Number(v);
+            if (!isFinite(amt) || amt < 0) return "";
+            const dollars = Math.floor(amt + 1e-9);
+            const cents = Math.round((amt - dollars) * 100 + 1e-9);
+            return `${numberToWordsInt(dollars)} and ${String(cents).padStart(2, "0")}/100`;
+        }
+
+        function formatDateISOToMMDDYYYY(iso) {
+            if (!iso) return "";
+            const [y, m, d] = iso.split("-").map(Number);
+            if (!y || !m || !d) return "";
+            return `${String(m).padStart(2, "0")}/${String(d).padStart(2, "0")}/${y}`;
+        }
+
+        // DOM
+        const payeeSelect = document.getElementById("payeeSelect");
+        const customPayeeWrap = document.getElementById("customPayeeWrap");
+        const customPayee = document.getElementById("customPayee");
+        const amountEl = document.getElementById("amount");
+        const dateEl = document.getElementById("date");
+        const gxEl = document.getElementById("gx");
+        const gyEl = document.getElementById("gy");
+        const gxRead = document.getElementById("gxRead");
+        const gyRead = document.getElementById("gyRead");
+
+        const checkSpace = document.getElementById("checkSpace");
+        const fDate = document.getElementById("fDate");
+        const fPayee = document.getElementById("fPayee");
+        const fWords = document.getElementById("fWords");
+        const fNum = document.getElementById("fNum");
+
+        function getPayee() {
+            if (payeeSelect.value === "__custom__") return (customPayee.value || "").trim();
+            return payeeSelect.value;
+        }
+
+        function render() {
+            fPayee.textContent = getPayee();
+
+            const money = formatMoney(amountEl.value);
+            fNum.textContent = money ? `$${money}` : "";
+            fWords.textContent = amountToCheckWords(amountEl.value) || "";
+            fDate.textContent = formatDateISOToMMDDYYYY(dateEl.value);
+
+            const gx = Number(gxEl.value) || 0;
+            const gy = Number(gyEl.value) || 0;
+            gxRead.textContent = `${gx} mm`;
+            gyRead.textContent = `${gy} mm`;
+            checkSpace.style.setProperty("--gx", gx + "mm");
+            checkSpace.style.setProperty("--gy", gy + "mm");
+
+            syncPreview();
+        }
+
+        function syncPreview() {
+            const mount = document.getElementById("previewMount");
+            mount.innerHTML = ""; // re-mount fresh
+            const clone = document.getElementById("printPage").cloneNode(true);
+            clone.removeAttribute("id");
+            clone.style.width = "100%";
+            clone.style.height = "100%";
+            clone.style.position = "relative";
+            clone.style.overflow = "hidden";
+            mount.appendChild(clone);
+        }
+
+        payeeSelect.addEventListener("change", () => {
+            const isCustom = payeeSelect.value === "__custom__";
+            customPayeeWrap.style.display = isCustom ? "block" : "none";
+            if (isCustom) customPayee.focus();
+            render();
+        });
+        customPayee.addEventListener("input", render);
+
+        [amountEl, dateEl, gxEl, gyEl].forEach(el => {
+            el.addEventListener("input", render);
+            el.addEventListener("change", render);
+        });
+
+        document.getElementById("printBtn").addEventListener("click", () => window.print());
+
+        document.getElementById("resetBtn").addEventListener("click", () => {
+            gxEl.value = 0; gyEl.value = 0;
+            payeeSelect.value = "Coca-Cola Consolidated";
+            customPayee.value = "";
+            customPayeeWrap.style.display = "none";
+            amountEl.value = "";
+            dateEl.value = "";
+            render();
+        });
+
+        document.getElementById("demoBtn").addEventListener("click", () => {
+            payeeSelect.value = "Coca-Cola Consolidated";
+            customPayeeWrap.style.display = "none";
+            amountEl.value = "927";
+            dateEl.value = new Date().toISOString().slice(0, 10);
+            render();
+        });
+
+        render();
+    </script>
+</body>
+
+</html>

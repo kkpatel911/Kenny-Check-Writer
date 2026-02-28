@@ -4,95 +4,69 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Check Print (Single Page)</title>
+    <title>Check Print</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <style>
-        /* Force EXACT single page */
+        /* Desktop/Mac: landscape */
         @page {
             size: 11in 8.5in;
             margin: 0;
         }
 
-        /* Letter landscape */
-
         :root {
-            --page-w: 11in;
-            --page-h: 8.5in;
+            /* Landscape canvas size (slightly reduced height helps iOS avoid 2 pages) */
+            --land-w: 11in;
+            --land-h: 8.45in;
 
+            /* Portrait page size (used for iPhone Safari rotation fallback) */
+            --port-w: 8.5in;
+            --port-h: 11in;
+
+            /* Check coordinate space */
             --check-w: 27cm;
             --check-h: 7.5cm;
 
-            --base-x: 7.06cm;
+            /* YOUR WORKING CALIBRATION */
+            --base-x: 11.06cm;
             --base-y: 6.36cm;
-            /* centered + 0.60mm calibration */
 
-            --gx: 0mm;
-            --gy: 0mm;
+            --ios-x: -38mm;
+            --ios-y: 0mm;
 
-            --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            --pdf-x: -70mm;
+            /* extra PDF tweak for iPhone */
+            --pdf-y: 0mm;
+            /* extra PDF tweak for iPhone */
+
+            --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
         }
 
         body {
             background: #f5f6f8;
         }
 
-        /* UI layout (screen only) */
-        .app-wrap {
-            display: grid;
-            grid-template-columns: 420px 1fr;
-            gap: 16px;
-            padding: 16px;
-            align-items: start;
-        }
-
-        @media (max-width: 992px) {
-            .app-wrap {
-                grid-template-columns: 1fr;
-            }
-
-            .sticky-panel {
-                position: static;
-            }
-        }
-
-        .sticky-panel {
-            position: sticky;
-            top: 12px;
-        }
-
-        /* Preview surface (screen) */
-        .paper-preview {
-            width: 27.94cm;
-            height: 21.59cm;
-            position: relative;
-            margin: 0 auto;
-            background: #fff;
-            border: 1px dashed rgba(0, 0, 0, .25);
-            border-radius: 14px;
-            overflow: hidden;
-            box-sizing: border-box;
-        }
-
-        /* PRINT surface: this is the ONLY thing that prints */
+        /* Keep print surface in DOM (NOT display:none) so iPhone Safari doesn't print blank */
         #printPage {
-            width: var(--page-w);
-            height: var(--page-h);
-            position: relative;
-            background: #fff;
+            position: fixed;
+            left: -99999px;
+            top: 0;
+            width: var(--land-w);
+            height: var(--land-h);
             overflow: hidden;
+            background: #fff;
+            opacity: 0;
+            pointer-events: none;
         }
 
-        /* .check-space {
-            position: absolute;
-            left: var(--base-x);
-            top: var(--base-y);
-            width: var(--check-w);
-            height: var(--check-h);
-            transform: translate(var(--gx), var(--gy));
-            pointer-events: none;
-        } */
+        #landscapeCanvas {
+            width: var(--land-w);
+            height: var(--land-h);
+            position: relative;
+            overflow: hidden;
+            background: #fff;
+        }
 
         .check-space {
             position: absolute;
@@ -100,15 +74,7 @@
             top: var(--base-y);
             width: var(--check-w);
             height: var(--check-h);
-            transform: translate(var(--gx), var(--gy));
-        }
-
-        .outline {
-            position: absolute;
-            inset: 0;
-            border: 1px solid rgba(0, 0, 0, .18);
-            border-radius: 10px;
-            opacity: .35;
+            transform: translate(var(--ios-x), var(--ios-y));
         }
 
         .field {
@@ -122,143 +88,176 @@
             text-overflow: ellipsis;
         }
 
-        /* --- PRINT RULES: guarantee ONE page --- */
+        .readonly-input {
+            background: #f8f9fa !important;
+            cursor: default;
+        }
+
+        /* Make the words preview wrap nicely on mobile */
+        #amountWordsPreview {
+            white-space: normal !important;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            resize: none;
+        }
+
+        /* PRINT MODE (reliable: visibility technique) */
         @media print {
 
             html,
             body {
                 margin: 0 !important;
                 padding: 0 !important;
-                width: var(--page-w) !important;
-                height: var(--page-h) !important;
-                overflow: hidden !important;
                 background: #fff !important;
+                overflow: hidden !important;
+                -webkit-text-size-adjust: 100% !important;
+                text-size-adjust: 100% !important;
             }
 
-            /* Print ONLY #printPage */
+            /* Hide everything */
             body * {
                 visibility: hidden !important;
             }
 
+            /* Show only print surface */
             #printPage,
             #printPage * {
                 visibility: visible !important;
             }
 
             #printPage {
-                position: fixed !important;
                 left: 0 !important;
                 top: 0 !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+
+                width: var(--land-w) !important;
+                height: var(--land-h) !important;
+
+                position: fixed !important;
+
                 page-break-after: avoid !important;
                 page-break-before: avoid !important;
                 break-after: avoid !important;
                 break-before: avoid !important;
             }
+        }
 
-            .outline {
-                display: none !important;
+        /* iPhone/iPad Safari print fallback:
+       Safari may insist on portrait. We rotate the LANDSCAPE canvas into portrait automatically. */
+        @supports (-webkit-touch-callout: none) {
+            @media print {
+                @page {
+                    size: 8.5in 11in;
+                    margin: 0;
+                }
+
+                .check-space {
+                    transform: translate(var(--ios-x), var(--ios-y)) !important;
+                }
+
+                #printPage {
+                    width: var(--port-w) !important;
+                    height: var(--port-h) !important;
+                }
+
+                #landscapeCanvas {
+                    transform-origin: top left !important;
+                    transform: translateX(var(--land-h)) rotate(90deg) !important;
+                }
             }
-
-            /* no outline on real print */
         }
     </style>
 </head>
 
 <body>
-    <div class="app-wrap">
-
-        <!-- UI (screen only) -->
-        <div class="sticky-panel">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h5 class="mb-0">Check Print</h5>
-                        <span class="badge text-bg-secondary">cm/mm</span>
-                    </div>
-
-                    <div class="alert alert-info py-2 small mb-3">
-                        If you don’t see “Headers and footers” on Mac Chrome, use
-                        <b>Print using system dialog…</b> and disable web headers/footers there.
-                        Keep <b>Scale = 100%</b>.
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Pay to</label>
-                        <select id="payeeSelect" class="form-select">
-                            <option value="Coca-Cola Consolidated">Coca-Cola Consolidated</option>
-                            <option value="Tri State">Tri State</option>
-                            <option value="__custom__">Custom…</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-3" id="customPayeeWrap" style="display:none;">
-                        <label class="form-label">Custom payee</label>
-                        <input id="customPayee" class="form-control" type="text" placeholder="Enter payee name" />
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Amount ($)</label>
-                        <input id="amount" class="form-control" type="number" step="0.01" inputmode="decimal"
-                            placeholder="927.00" />
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Date</label>
-                        <input id="date" class="form-control" type="date" />
-                    </div>
-
-                    <div class="row g-3 mb-2">
-                        <div class="col-12 col-sm-6">
-                            <label class="form-label">Global X (mm)</label>
-                            <input id="gx" class="form-range" type="range" min="-30" max="30" value="0" />
-                            <div class="small text-muted" id="gxRead">0 mm</div>
+    <!-- UI ONLY -->
+    <div class="container py-4 ui-only">
+        <div class="row justify-content-center">
+            <div class="col-12 col-lg-6">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <div class="fw-bold fs-5">Check Print</div>
+                                <div class="text-muted small">Mac prints perfect. iPhone Safari uses auto-rotate.</div>
+                            </div>
+                            <span class="badge bg-dark rounded-pill">Ready</span>
                         </div>
-                        <div class="col-12 col-sm-6">
-                            <label class="form-label">Global Y (mm)</label>
-                            <input id="gy" class="form-range" type="range" min="-30" max="30" value="0" />
-                            <div class="small text-muted" id="gyRead">0 mm</div>
-                        </div>
-                    </div>
 
-                    <div class="d-flex gap-2 flex-wrap mt-3">
-                        <button class="btn btn-dark" id="printBtn" type="button">Print</button>
-                        <button class="btn btn-outline-secondary" id="demoBtn" type="button">Demo</button>
-                        <button class="btn btn-outline-secondary" id="resetBtn" type="button">Reset</button>
+                        <div class="mb-3">
+                            <label class="form-label">Pay to</label>
+                            <select id="payeeSelect" class="form-select form-select-lg">
+                                <option value="Coca-Cola Consolidated">Coca-Cola Consolidated</option>
+                                <option value="Tri State">Tri State</option>
+                                <option value="__custom__">Custom…</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3 d-none" id="customWrap">
+                            <input id="customPayee" class="form-control form-control-lg" placeholder="Custom payee">
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Amount ($)</label>
+                                <input id="amount" class="form-control form-control-lg" type="number" step="0.01"
+                                    inputmode="decimal" placeholder="1455.00">
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Date</label>
+                                <input id="date" class="form-control form-control-lg" type="date">
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label">Amount in words</label>
+                                <textarea id="amountWordsPreview" class="form-control form-control-lg readonly-input"
+                                    rows="2" readonly placeholder="Auto-fills as you type amount"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="d-grid mt-4">
+                            <button id="printBtn" class="btn btn-dark btn-lg">Print (Laptop)</button>
+                            <br>
+                            <button id="pdfBtn" class="btn btn-outline-dark btn-lg">Generate PDF (iPhone)</button>
+                        </div>
+
+                        <div class="text-muted small mt-3">
+                            Calibration: <code>base-x 7.06cm</code>, <code>base-y 6.36cm</code>.
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- Preview (screen only) -->
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <div class="paper-preview">
-                    <!-- reuse the same print content for preview by cloning via JS -->
-                    <div id="previewMount"></div>
-                </div>
-                <div class="small text-muted mt-2">
-                    Preview shows the same content. Printing is forced to a single page.
-                </div>
-            </div>
-        </div>
-
     </div>
 
-    <!-- The ONE printable page -->
+    <!-- PRINT SURFACE (OFFSCREEN ON SCREEN, VISIBLE IN PRINT) -->
     <div id="printPage" aria-hidden="true">
-        <div class="check-space" id="checkSpace">
-            <div class="outline"></div>
-
-            <!-- Your coordinates (cm) -->
-            <div class="field" id="fDate" style="left:15cm; top:2.40cm;"></div>
-            <div class="field" id="fPayee" style="left:2.50cm; top:3.45cm; font-size:14pt;"></div>
-            <div class="field" id="fWords" style="left:1cm; top:4.35cm; font-size:13pt; max-width:25cm;"></div>
-            <div class="field" id="fNum" style="left:17.50cm; top:3.55cm; font-size:14pt;"></div>
+        <div id="landscapeCanvas">
+            <div class="check-space">
+                <!-- Your coordinates (cm) -->
+                <div class="field" id="fDate" style="left:15cm; top:2.40cm;"></div>
+                <div class="field" id="fPayee" style="left:2.50cm; top:3.45cm; font-size:14pt;"></div>
+                <div class="field" id="fWords" style="left:1cm; top:4.35cm; font-size:13pt; max-width:25cm;"></div>
+                <div class="field" id="fNum" style="left:17.50cm; top:3.55cm; font-size:14pt;"></div>
+            </div>
         </div>
     </div>
 
     <script>
-        // ---------- Number-to-words ----------
+        const payeeSelect = document.getElementById("payeeSelect");
+        const customWrap = document.getElementById("customWrap");
+        const customPayee = document.getElementById("customPayee");
+        const amount = document.getElementById("amount");
+        const date = document.getElementById("date");
+        const amountWordsPreview = document.getElementById("amountWordsPreview");
+
+        const fDate = document.getElementById("fDate");
+        const fPayee = document.getElementById("fPayee");
+        const fWords = document.getElementById("fWords");
+        const fNum = document.getElementById("fNum");
+
         const ONES = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
         const TEENS = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
         const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
@@ -294,111 +293,145 @@
         }
 
         function formatMoney(v) {
-            const amt = Number(v);
-            if (!isFinite(amt) || amt < 0) return "";
-            return amt.toFixed(2);
+            const n = Number(String(v).trim());
+            return (!isFinite(n) || n < 0) ? "" : n.toFixed(2);
         }
 
         function amountToCheckWords(v) {
-            const amt = Number(v);
+            const amt = Number(String(v).trim());
             if (!isFinite(amt) || amt < 0) return "";
             const dollars = Math.floor(amt + 1e-9);
             const cents = Math.round((amt - dollars) * 100 + 1e-9);
             return `${numberToWordsInt(dollars)} and ${String(cents).padStart(2, "0")}/100`;
         }
 
-        function formatDateISOToMMDDYYYY(iso) {
-            if (!iso) return "";
-            const [y, m, d] = iso.split("-").map(Number);
-            if (!y || !m || !d) return "";
-            return `${String(m).padStart(2, "0")}/${String(d).padStart(2, "0")}/${y}`;
+        function setTodayIfEmpty() {
+            if (!date.value) {
+                date.value = new Date().toISOString().split("T")[0];
+            }
         }
 
-        // DOM
-        const payeeSelect = document.getElementById("payeeSelect");
-        const customPayeeWrap = document.getElementById("customPayeeWrap");
-        const customPayee = document.getElementById("customPayee");
-        const amountEl = document.getElementById("amount");
-        const dateEl = document.getElementById("date");
-        const gxEl = document.getElementById("gx");
-        const gyEl = document.getElementById("gy");
-        const gxRead = document.getElementById("gxRead");
-        const gyRead = document.getElementById("gyRead");
-
-        const checkSpace = document.getElementById("checkSpace");
-        const fDate = document.getElementById("fDate");
-        const fPayee = document.getElementById("fPayee");
-        const fWords = document.getElementById("fWords");
-        const fNum = document.getElementById("fNum");
+        function formatDateISOToMMDDYYYY(iso) {
+            if (!iso) return "";
+            const [y, m, d] = iso.split("-");
+            return `${m}/${d}/${y}`;
+        }
 
         function getPayee() {
-            if (payeeSelect.value === "__custom__") return (customPayee.value || "").trim();
-            return payeeSelect.value;
+            return payeeSelect.value === "__custom__"
+                ? (customPayee.value || "").trim()
+                : payeeSelect.value;
+        }
+
+        function autoGrowPreview() {
+            amountWordsPreview.style.height = "auto";
+            amountWordsPreview.style.height = amountWordsPreview.scrollHeight + "px";
         }
 
         function render() {
+            setTodayIfEmpty();
+
+            fDate.textContent = formatDateISOToMMDDYYYY(date.value);
             fPayee.textContent = getPayee();
 
-            const money = formatMoney(amountEl.value);
+            const money = formatMoney(amount.value);
             fNum.textContent = money ? `$${money}` : "";
-            fWords.textContent = amountToCheckWords(amountEl.value) || "";
-            fDate.textContent = formatDateISOToMMDDYYYY(dateEl.value);
 
-            const gx = Number(gxEl.value) || 0;
-            const gy = Number(gyEl.value) || 0;
-            gxRead.textContent = `${gx} mm`;
-            gyRead.textContent = `${gy} mm`;
-            checkSpace.style.setProperty("--gx", gx + "mm");
-            checkSpace.style.setProperty("--gy", gy + "mm");
+            const words = money ? amountToCheckWords(amount.value) : "";
+            fWords.textContent = words;
 
-            syncPreview();
+            amountWordsPreview.value = words;
+            autoGrowPreview();
         }
 
-        function syncPreview() {
-            const mount = document.getElementById("previewMount");
-            mount.innerHTML = ""; // re-mount fresh
-            const clone = document.getElementById("printPage").cloneNode(true);
-            clone.removeAttribute("id");
-            clone.style.width = "100%";
-            clone.style.height = "100%";
-            clone.style.position = "relative";
-            clone.style.overflow = "hidden";
-            mount.appendChild(clone);
+        // ---------- PDF (iPhone-safe) ----------
+        function cmToMm(cm) { return cm * 10; }
+
+        function getCurrentValues() {
+            const payee = getPayee();
+            const money = formatMoney(amount.value);
+            const words = money ? amountToCheckWords(amount.value) : "";
+            const dateStr = formatDateISOToMMDDYYYY(date.value);
+            return { payee, money, words, dateStr };
         }
+
+        async function generatePDF() {
+            setTodayIfEmpty();
+            render();
+
+            const { jsPDF } = window.jspdf;
+
+            // Letter landscape in mm: 279.4 x 215.9
+            const doc = new jsPDF({
+                orientation: "landscape",
+                unit: "mm",
+                format: [279.4, 215.9]
+            });
+
+            // Read calibration directly from CSS variables so HTML + PDF match
+            const styles = getComputedStyle(document.documentElement);
+
+            // base-x/base-y are in cm; ios-x/ios-y/pdf-x/pdf-y are in mm
+            const baseXmm = parseFloat(styles.getPropertyValue("--base-x")) * 10; // cm -> mm
+            const baseYmm = parseFloat(styles.getPropertyValue("--base-y")) * 10; // cm -> mm
+
+            const iosXmm = parseFloat(styles.getPropertyValue("--ios-x")) || 0;  // mm
+            const iosYmm = parseFloat(styles.getPropertyValue("--ios-y")) || 0;  // mm
+
+            const pdfXmm = parseFloat(styles.getPropertyValue("--pdf-x")) || 0;  // mm
+            const pdfYmm = parseFloat(styles.getPropertyValue("--pdf-y")) || 0;  // mm
+
+            // Final base used for PDF = your HTML base + iPhone tweak + PDF tweak
+            const baseX = baseXmm + iosXmm + pdfXmm;
+            const baseY = baseYmm + iosYmm + pdfYmm;
+
+            // Your field positions (cm -> mm)
+            const pos = {
+                date: { x: cmToMm(15), y: cmToMm(2.40) },
+                payee: { x: cmToMm(2.50), y: cmToMm(3.45) },
+                words: { x: cmToMm(1.00), y: cmToMm(4.35) },
+                num: { x: cmToMm(17.50), y: cmToMm(3.55) }
+            };
+
+            const { payee, money, words, dateStr } = getCurrentValues();
+
+            doc.setFont("courier", "normal");
+
+            doc.setFontSize(14);
+            if (dateStr) doc.text(dateStr, baseX + pos.date.x, baseY + pos.date.y);
+            if (payee) doc.text(payee, baseX + pos.payee.x, baseY + pos.payee.y);
+
+            doc.setFontSize(13);
+            if (words) doc.text(words, baseX + pos.words.x, baseY + pos.words.y);
+
+            doc.setFontSize(14);
+            if (money) doc.text(`$${money}`, baseX + pos.num.x, baseY + pos.num.y);
+
+            // Open PDF (iPhone-friendly)
+            const blob = doc.output("blob");
+            const url = URL.createObjectURL(blob);
+            window.open(url, "_blank");
+        }
+
+        document.getElementById("pdfBtn").addEventListener("click", generatePDF);
 
         payeeSelect.addEventListener("change", () => {
-            const isCustom = payeeSelect.value === "__custom__";
-            customPayeeWrap.style.display = isCustom ? "block" : "none";
-            if (isCustom) customPayee.focus();
-            render();
-        });
-        customPayee.addEventListener("input", render);
-
-        [amountEl, dateEl, gxEl, gyEl].forEach(el => {
-            el.addEventListener("input", render);
-            el.addEventListener("change", render);
-        });
-
-        document.getElementById("printBtn").addEventListener("click", () => window.print());
-
-        document.getElementById("resetBtn").addEventListener("click", () => {
-            gxEl.value = 0; gyEl.value = 0;
-            payeeSelect.value = "Coca-Cola Consolidated";
-            customPayee.value = "";
-            customPayeeWrap.style.display = "none";
-            amountEl.value = "";
-            dateEl.value = "";
+            customWrap.classList.toggle("d-none", payeeSelect.value !== "__custom__");
             render();
         });
 
-        document.getElementById("demoBtn").addEventListener("click", () => {
-            payeeSelect.value = "Coca-Cola Consolidated";
-            customPayeeWrap.style.display = "none";
-            amountEl.value = "927";
-            dateEl.value = new Date().toISOString().slice(0, 10);
+        [customPayee, amount, date].forEach(el => el.addEventListener("input", render));
+
+        document.getElementById("printBtn").addEventListener("click", () => {
+            setTodayIfEmpty();
             render();
+            window.print();
         });
 
+        // Init
+        payeeSelect.value = "Coca-Cola Consolidated";
+        customWrap.classList.add("d-none");
+        setTodayIfEmpty();
         render();
     </script>
 </body>
