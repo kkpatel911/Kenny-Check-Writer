@@ -339,7 +339,7 @@
             fPayee.textContent = getPayee();
 
             const money = formatMoney(amount.value);
-            fNum.textContent = money ? `$${money}` : "";
+            fNum.textContent = money ? `${money}` : "";
 
             const words = money ? amountToCheckWords(amount.value) : "";
             fWords.textContent = words;
